@@ -125,9 +125,16 @@
    which the MIDI device will transmit MIDI data."
   [source-info]
   (let [^MidiDevice dev (:device source-info)]
-    (if (not (.isOpen dev))
-      (.open dev))
+    (try
+      (if (not (.isOpen dev))
+        (.open dev))
+      (catch Exception e (println e)))
     (assoc source-info :transmitter (.getTransmitter dev))))
+
+(comment
+  (midi-sources)
+  (:device (midi-find-device (midi-sources) "VirMidi"))
+  (with-transmitter (midi-find-device (midi-sources) "VirMidi")))
 
 (defn midi-in
   "Open a midi input device for reading.  If no argument is given then
@@ -266,6 +273,16 @@
    (let [off-msg (ShortMessage.)]
      (.setMessage off-msg ShortMessage/NOTE_OFF channel note-num 0)
      (midi-send-msg (:receiver sink) off-msg -1))))
+
+(defn midi-pitch-bend
+  "Send a midi pitch bend msg to the sink."
+  ([sink amount]
+   (midi-pitch-bend sink amount 0))
+  ([sink amount channel]
+   (let [msg (ShortMessage.)]
+     (.setMessage msg ShortMessage/PITCH_BEND channel amount amount)
+     (println "channel " (.getChannel msg))
+     (midi-send-msg (:receiver sink) msg -1))))
 
 (defn midi-control
   "Send a control msg to the sink"

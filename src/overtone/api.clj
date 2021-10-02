@@ -20,9 +20,10 @@
             [overtone.helpers.doc :refer [fs]]))
 
 
-;; Currently the default lein setting drastically reduces performance in
-;; return for a 200ms improvement of the startup time. See:
-;; https://github.com/technomancy/leiningen/pull/1230
+  ;; Currently the default lein setting drastically reduces performance in
+  ;; return for a 200ms improvement of the startup time. See:
+  ;; https://github.com/technomancy/leiningen/pull/1230
+
 (defonce __PRINT_TIERED_COMPILATION_WARNING__
   (let [compiler-bean (ManagementFactory/getCompilationMXBean)
         compiler-name (.getName compiler-bean)
@@ -93,8 +94,8 @@
    'overtone.studio.inst
    'overtone.studio.fx
    'overtone.studio.wavetable
-   'overtone.studio.midi
-   'overtone.studio.midi-player
+   ;; 'overtone.studio.midi
+   ;; 'overtone.studio.midi-player
    'overtone.studio.core
    'overtone.music.rhythm
    'overtone.music.pitch

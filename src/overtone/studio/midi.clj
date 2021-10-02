@@ -282,15 +282,16 @@
                 (log/warn "Can't listen to midi device: " dev "\n" e)
                 false)))
           devs)))
+(comment
+  ;;  Because VirMIDI and Java MIDI are not playing nice on my system
+  (defonce ^:private midi-connected-devices*
+    (-> (detect-midi-devices) add-listener-handles!))
 
-(defonce ^:private midi-connected-devices*
-  (-> (detect-midi-devices) add-listener-handles!))
+  (defonce ^:private midi-connected-receivers*
+    (map midi/midi-out (detect-midi-receivers)))
 
-(defonce ^:private midi-connected-receivers*
-  (map midi/midi-out (detect-midi-receivers)))
-
-(defn midi-connected-devices
-  "Returns a sequence of device maps for all 'connected' MIDI
+  (defn midi-connected-devices
+    "Returns a sequence of device maps for all 'connected' MIDI
    devices. By device, we mean a MIDI unit that is capable of sending
    messages (such as a MIDI piano). By connected, we mean that Overtone
    is aware of the device and has added event handlers to emit incoming
@@ -300,11 +301,11 @@
    time. Therefore, devices connected after boot will not be
    available. We are considering work-arounds to this issue for a future
    release."
-  []
-  midi-connected-devices*)
+    []
+    midi-connected-devices*)
 
-(defn midi-connected-receivers
-  "Returns a sequence of device maps for all 'connected' MIDI
+  (defn midi-connected-receivers
+    "Returns a sequence of device maps for all 'connected' MIDI
    receivers. By receiver, we mean a MIDI unit that is capable of
    receiving messages. By connected, we mean that Overtone is aware of
    the device.
@@ -313,8 +314,8 @@
    time. Therefore, devices connected after boot will not be
    available. We are considering work-arounds to this issue for a future
    release."
-  []
-  midi-connected-receivers*)
+    []
+    midi-connected-receivers*))
 
 (defn midi-device-num
   "Returns the device number for the specified MIDI device"

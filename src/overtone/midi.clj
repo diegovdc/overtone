@@ -276,6 +276,15 @@
      (.setMessage ctl-msg ShortMessage/CONTROL_CHANGE channel ctl-num val)
      (midi-send-msg (:receiver sink) ctl-msg -1))))
 
+(defn midi-pitch-bend
+  "Send a midi pitch bend msg to the sink."
+  ([sink amount]
+   (midi-pitch-bend sink amount 0))
+  ([sink amount channel]
+   (let [msg (ShortMessage.)]
+     (.setMessage msg ShortMessage/PITCH_BEND channel amount amount)
+     (midi-send-msg (:receiver sink) msg -1))))
+
 (def hex-char-values (hash-map
                       \0 0 \1 1 \2 2 \3 3 \4 4 \5 5 \6 6 \7 7 \8 8 \9 9
                       \a 10 \b 11 \c 12 \d 13 \e 14 \f 15

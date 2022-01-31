@@ -475,7 +475,10 @@
               [~sname ~params ugens# consts#])))))
 
 (defn- format-args [args]
-  (if-not (map? (first args))
+  (if-not (or (= clojure.lang.PersistentArrayMap
+                 (type (first args)))
+              (= clojure.lang.PersistentHashMap
+                 (type (first args))))
     (or args [])
     (let [args* (first args)
           group (args* :group)

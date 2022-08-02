@@ -1,0 +1,18 @@
+(ns overtone.sc.ugen-collide-list
+  (:refer-clojure :exclude [= * < <= min max and + >= / or - mod > not=]))
+
+(def = overtone.sc.ugen-collide/=)
+(def < overtone.sc.ugen-collide/<)
+(def <= overtone.sc.ugen-collide/<=)
+(def  * overtone.sc.ugen-collide/*)
+(def min overtone.sc.ugen-collide/min)
+(def not= overtone.sc.ugen-collide/not=)
+(def > overtone.sc.ugen-collide/>)
+(def mod overtone.sc.ugen-collide/mod)
+(def - overtone.sc.ugen-collide/-)
+(def or overtone.sc.ugen-collide/or)
+(def / overtone.sc.ugen-collide/binary-div-op)
+(def >= overtone.sc.ugen-collide/>=)
+(def + overtone.sc.ugen-collide/+)
+(def max overtone.sc.ugen-collide/max)
+(def and overtone.sc.ugen-collide/and)

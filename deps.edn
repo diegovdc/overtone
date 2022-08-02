@@ -6,10 +6,10 @@
          overtone/ableton-link {:mvn/version "1.0.0-beta1"}
          overtone/scsynth {:mvn/version "3.10.2"}
          overtone/scsynth-extras {:mvn/version "3.10.2"}
-         commons-net/commons-net {:mvn/version"3.6"}
+         commons-net/commons-net {:mvn/version "3.6"}
          javax.jmdns/jmdns {:mvn/version "3.4.1"}
-         clj-glob {:mvn/version "1.0.0"}
-         clj-native {:mvn/version "0.9.5"}
+         clj-glob/clj-glob {:mvn/version "1.0.0"}
+         clj-native/clj-native {:mvn/version "0.9.5"}
          badigeon/badigeon {:git/url "https://github.com/EwenG/badigeon.git"
-                            :sha "e7f62a60d8e890fc84a47bcfdd59137e11ff1c95"
+                            :sha "6fc7f26fcb4fa90b19dfb86a422756e23af5b536"
                             :tag "0.0.7"}}}

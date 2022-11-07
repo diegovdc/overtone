@@ -134,10 +134,11 @@
    (ctl (foundation-input-group) :input-gain gain)
    (swap! studio* assoc :input-gain gain)))
 
-(defonce __RECORDER__
-  (defsynth master-recorder
-    [out-buf 0]
-    (disk-out out-buf (in 0 2))))
+(defn- master-recorder
+  ([group out-buf] (master-recorder group out-buf 2))
+  ([group out-buf n-chans]
+   ((synth [] (disk-out out-buf (in 0 n-chans)))
+    group)))
 
 (defn recording-start
   "Start recording a wav file to a new file at wav-path. Be careful -
@@ -154,7 +155,9 @@
 
   (let [path (resolve-tilde-path path)
         bs   (apply buffer-stream path args)
-        rec  (master-recorder [:tail (foundation-monitor-group)] bs)]
+        args* (apply hash-map args)
+        n-chans (:n-chans args* 2)
+        rec  (master-recorder [:tail (foundation-monitor-group)] bs n-chans)]
     (swap! studio* assoc :recorder {:rec-id rec
                                     :buf-stream bs})
     :recording-started))

@@ -2,7 +2,7 @@
   (:require [badigeon.bundle :as bundle]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [clojure.tools.deps.alpha :as deps]
+            [clojure.tools.deps :as deps]
             [clojure.walk :as walk]
             [overtone.helpers.file :refer [ensure-native]]
             [overtone.helpers.system :refer [get-os]]))
@@ -48,6 +48,8 @@
 ;; set jna.library.path to point to native libraries
 ;; dependant on OS. No path merge to prevent clj-native
 ;; from pulling out third party lib files from path
+
+
 (defonce __SET_JNA_PATH__
   (do (ensure-native)
       (case (get-os)

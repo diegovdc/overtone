@@ -7,7 +7,8 @@
         [overtone.sc server info]
         [overtone.helpers audio-file lib file doc]
         [overtone.sc.util :only [id-mapper]]
-        [overtone.config.store :refer [config-get]]))
+        [overtone.config.store :refer [config-get]])
+  (:require [clojure.pprint]))
 
 (defonce ^{:private true} __RECORDS__
   (do
@@ -30,6 +31,18 @@
     (defrecord BufferInStream [id size n-channels rate status path open?]
       to-sc-id*
       (to-sc-id [this] (:id this)))))
+
+(defmethod clojure.pprint/simple-dispatch Buffer [b]
+  (println
+   (format "#<buffer[%s]: %s %fs %s %d>"
+           (name @(:status b))
+           (:name b)
+           (:duration b)
+           (cond
+             (= 1 (:n-channels b)) "mono"
+             (= 2 (:n-channels b)) "stereo"
+             :else (str (:n-channels b) " channels"))
+           (:id b))))
 
 (defmethod print-method Buffer [b ^java.io.Writer w]
   (.write w (format "#<buffer[%s]: %s %fs %s %d>"
@@ -59,15 +72,25 @@
              ibme
              "Expected one of :silent, :warning, :exception."))))))
 
-(defn assert-less-than-max-buffers []
+(defn assert-less-than-max-buffers [key]
   (when (transient-server?)
     (let [config-max-buffers (config-get [:sc-args :max-buffers])
           default-max-buffers 1024
           max-buffers (or config-max-buffers default-max-buffers)]
-      (assert (< (get counters* key 0) config-max-buffers)
+      (assert (< (get counters* key 0) max-buffers)
               (str "Allocation of buffer exceeded the max-buffers size: "
-                   config-max-buffers "\n."
+                   max-buffers "\n."
                    "This can be configured in overtone config under :sc-args {:max-buffers 2^x}.")))))
+
+(defmethod clojure.pprint/simple-dispatch BufferInfo [b]
+  (println
+   (format "#<buffer-info: %fs %s %d>"
+           (:duration b)
+           (cond
+             (= 1 (:n-channels b)) "mono"
+             (= 2 (:n-channels b)) "stereo"
+             :else                 (str (:n-channels b) " channels"))
+           (:id b))))
 
 (defmethod print-method BufferInfo [b ^java.io.Writer w]
   (.write w (format "#<buffer-info: %fs %s %d>"
@@ -134,7 +157,7 @@
      (buffer size num-channels-or-name "")))
   ([size num-channels name]
    (let [size (long size)
-         id   (do (assert-less-than-max-buffers)
+         id   (do (assert-less-than-max-buffers :audio-buffer)
                   (next-id :audio-buffer))
          buf  (with-server-sync
                 #(snd "/b_alloc" id size num-channels)
@@ -165,7 +188,7 @@
    (ensure-path-exists! path)
    (let [path (canonical-path path)
          f    (file path)
-         id   (do (assert-less-than-max-buffers)
+         id   (do (assert-less-than-max-buffers :audio-buffer)
                   (next-id :audio-buffer))]
      (snd-immediately
       (with-server-sync
@@ -276,7 +299,7 @@
                   too large to be sent via UDP."))
        (let [data    (if (number? data) [data] data)
              doubles (map float data)]
-         (if (> (+ start-idx cnt) (:size buf))
+         (if (> (+ start-idx cnt) (:n-samples buf))
            (throw (Exception. (str "the data you attempted to write to buffer " (:id buf) "was too large for its capacity. Use a smaller data list and/or a lower start index.")))
            (apply snd "/b_setn" (:id buf) start-idx cnt doubles))))
      buf))

@@ -1,13 +1,24 @@
 (ns overtone.studio.inst
   (:refer-clojure :exclude [Inst])
-  (:use [overtone.sc defaults bindings server synth ugens envelope node bus dyn-vars]
-        [overtone.sc.machinery synthdef]
-        [overtone.studio core mixer fx]
-        [overtone.helpers lib]
-        [overtone.libs event])
-  (:require [overtone.sc.protocols :as protocols]
-            [overtone.sc.util :refer [id-mapper]]
-            [overtone.sc.machinery.server.comms :refer [with-server-sync]] ))
+  (:use [overtone.sc.defaults]
+        [overtone.sc.bindings]
+        [overtone.sc.server]
+        [overtone.sc.synth]
+        [overtone.sc.ugens]
+        [overtone.sc.envelope]
+        [overtone.sc.node]
+        [overtone.sc.bus]
+        [overtone.sc.dyn-vars]
+        [overtone.sc.machinery.synthdef]
+        [overtone.studio.core]
+        [overtone.studio.mixer]
+        [overtone.studio.fx]
+        [overtone.helpers.lib]
+        [overtone.libs.event])
+  (:require [clojure.pprint]
+            [overtone.sc.protocols :as protocols]
+            [overtone.sc.util]
+            [overtone.sc.machinery.server.comms :refer [with-server-sync]]))
 
 (defonce ^{:private true} __RECORDS__
   (do
@@ -56,7 +67,7 @@
 
 (defn inst-channels
   "Internal fn used for multimethod dispatch on Insts."
-  [inst & args]
+  [inst & _args]
   (let [n-chans (:n-chans inst)]
     (if (> n-chans 1) :stereo :mono)))
 
@@ -267,6 +278,12 @@
   (let [[i-name params ugen-form] (synth-form i-name inst-form)
         i-name                    (with-meta i-name (merge (meta i-name) {:type ::instrument}))]
     `(def ~i-name (inst ~i-name ~params ~ugen-form))))
+
+(defmethod clojure.pprint/simple-dispatch Inst [ins]
+  (println (format "#<instrument: %s>" (:name ins))))
+
+(defmethod print-method Inst [ins ^java.io.Writer w]
+  (.write w (format "#<instrument: %s>" (:name ins))))
 
 (defmethod print-method ::instrument [ins ^java.io.Writer w]
   (let [info (meta ins)]

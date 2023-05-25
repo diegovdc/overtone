@@ -1,20 +1,28 @@
 (ns
-  ^{:doc "Making it easy to load and play audio samples (wav or aif files)."
-     :author "Jeff Rose"}
-  overtone.sc.sample
+    ^{:doc "Making it easy to load and play audio samples (wav or aif files)."
+      :author "Jeff Rose"}
+    overtone.sc.sample
   (:use [clojure.java.io :only [file]]
-        [overtone.helpers lib synth]
-        [overtone.libs event deps]
-        [overtone.sc server synth ugens buffer foundation-groups node]
-        [overtone.sc.machinery allocator]
-        [overtone.sc.machinery.server comms]
-        [overtone.sc.cgens buf-io io]
-        [overtone.studio core]
-        [overtone.helpers.file :only [glob canonical-path resolve-tilde-path mk-path file-extension]])
-  (:require [overtone.sc.envelope :refer [asr]]
-            [overtone.sc.info :refer [server-sample-rate]]
-            [overtone.libs.counters :refer [next-id]]
-            [overtone.osc :refer [osc-send]]))
+        [overtone.helpers.lib]
+        [overtone.helpers.synth]
+        [overtone.libs.event]
+        [overtone.libs.deps]
+        [overtone.sc.server]
+        [overtone.sc.synth]
+        [overtone.sc.ugens]
+        [overtone.sc.buffer]
+        [overtone.sc.foundation-groups]
+        [overtone.sc.node]
+        [overtone.sc.machinery.allocator]
+        [overtone.sc.machinery.server.comms]
+        [overtone.sc.cgens.buf-io]
+        [overtone.sc.cgens.io]
+        [overtone.studio.core]
+        [overtone.helpers.file :only [glob canonical-path file-extension]])
+    (:require [overtone.sc.envelope :refer [asr]]
+              [overtone.sc.info :refer [server-sample-rate]]
+              [overtone.libs.counters :refer [next-id]]
+              [overtone.osc]))
 
 (declare sample-player)
 
@@ -35,6 +43,17 @@
   [s]
   (isa? (type s) ::sample))
 
+(defmethod clojure.pprint/simple-dispatch Sample [b]
+  (println (format "#<buffer[%s]: %s %fs %s %d>"
+                   (name @(:status b))
+                   (:name b)
+                   (:duration b)
+                   (cond
+                     (= 1 (:n-channels b)) "mono"
+                     (= 2 (:n-channels b)) "stereo"
+                     :else (str (:n-channels b) " channels"))
+                   (:id b))))
+
 (defmethod print-method Sample [b ^java.io.Writer w]
   (.write w (format "#<buffer[%s]: %s %fs %s %d>"
                     (name @(:status b))
@@ -45,6 +64,17 @@
                       (= 2 (:n-channels b)) "stereo"
                       :else (str (:n-channels b) " channels"))
                     (:id b))))
+
+(defmethod clojure.pprint/simple-dispatch PlayableSample [b]
+  (println (format "#<buffer[%s]: %s %fs %s %d>"
+                   (name @(:status b))
+                   (:name b)
+                   (:duration b)
+                   (cond
+                     (= 1 (:n-channels b)) "mono"
+                     (= 2 (:n-channels b)) "stereo"
+                     :else (str (:n-channels b) " channels"))
+                   (:id b))))
 
 (defmethod print-method PlayableSample [b ^java.io.Writer w]
   (.write w (format "#<buffer[%s]: %s %fs %s %d>"
@@ -226,7 +256,7 @@
     (reduce (fn [return-samples path-or-cache]
               (if (sample? path-or-cache)
                 (conj return-samples path-or-cache)
-                (let [id          (do (assert-less-than-max-buffers)
+                (let [id          (do (assert-less-than-max-buffers :audio-buffer)
                                       (next-id :audio-buffer))
                       *size       (atom nil)
                       *n-channels (atom nil)

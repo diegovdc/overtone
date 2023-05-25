@@ -15,7 +15,7 @@
         [clojure.pprint]
         [overtone.helpers.string :only [hash-shorten]])
 
-  (:require [overtone.config.log :as log]
+  (:require [overtone.config.log]
             [clojure.set :as set]
             [overtone.sc.cgens.env :refer [hold]]
             [overtone.sc.protocols :as protocols]))
@@ -433,7 +433,7 @@
                    [(conj ret ug) (conj visited ug) path])))]
     (first (reduce visit [[] #{} #{}] ugens))))
 
-
+#_:clj-kondo/ignore
 (comment
   ; Some test synths, while shaking out the bugs...
 (defsynth foo [] (out 0 (rlpf (saw [220 663]) (x-line:kr 20000 2 1 FREE))))
@@ -490,7 +490,6 @@
         args**))))
 
 (defn synth-player
-  [sdef params this & args]
   "Returns a player function for a named synth.  Used by (synth ...)
     internally, but can be used to generate a player for a pre-compiled
     synth.  The function generated will accept a target and position
@@ -525,13 +524,14 @@
     ;; positional args. Positional args must go first.
     (foo [:head 2] 440 :amp 0.3)
     "
+  [sdef params this & args]
   (let [arg-names         (map keyword (map :name params))
         args              (format-args args)
         [target pos args] (extract-target-pos-args args (foundation-default-group) :tail)
         args              (idify args)
         args              (map (fn [arg] (if-let [id (:id arg)]
-                                          id
-                                          arg))
+                                           id
+                                           arg))
                                args)
         defaults          (into {} (map (fn [{:keys [name value]}]
                                           [(keyword name) @value])
@@ -656,6 +656,36 @@
   {:arglists '([name doc-string? params ugen-form])}
   (let [[s-name params ugen-form] (synth-form s-name s-form)]
     `(def ~s-name (synth ~s-name ~params ~ugen-form))))
+
+(defn synth-load
+  [file-path]
+  (let [{:keys [pnames params] :as sdef} (load-synth-file file-path)
+        [s-name params _ugen-form] (synth-form (symbol (:name sdef))
+                                               (list (vec (mapcat (fn [pname default-value]
+                                                                    [(symbol (:name pname)) default-value])
+                                                                  pnames params))
+                                                     nil))]
+    (with-meta
+      (map->Synth
+       {:name s-name
+        :sdef sdef})
+      (merge {:overtone.live/to-string #(str (name (:type %)) ":" (:name %))}
+             (meta s-name)))))
+
+(defmacro defsynth-load
+  "Load a synth from a compiled Synthdef file.
+
+  E.g.
+  (defsynth-load my-beep
+   \"/Users/paulo.feodrippe/dev/sonic-pi/etc/synthdefs/compiled/sonic-pi-beep.scsyndef\")
+
+  (my-beep :note 40)"
+  [def-name file-path]
+  (let [smap (synth-load file-path)]
+    `(def ~(with-meta def-name
+             (merge (dissoc (meta smap) :name)
+                    (meta def-name)))
+       ~smap)))
 
 (defn synth?
   "Returns true if s is a synth, false otherwise."

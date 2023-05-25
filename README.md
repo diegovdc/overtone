@@ -55,7 +55,7 @@ collaborating with music.  It provides:
 
     # add the following dependencies to insane-noises/project.clj
     # [org.clojure/clojure "1.9.0"]
-    # [overtone "0.10.6"]
+    # [overtone/overtone "0.10.6"]
 
     $ cd insane-noises
     $ lein repl
@@ -75,6 +75,11 @@ collaborating with music.  It provides:
     user=> (demo 7 (lpf (mix (saw [50 (line 100 1600 5) 101 100.5]))
                    (lin-lin (lf-tri (line 2 20 5)) -1 1 400 4000)))
 ```
+
+### Linter (clj-kondo)
+Run `overtone.linter/emit!` to emit clj-kondo configuration.
+
+Do **not** commit the generated files, it's a bunch of data.
 
 ### Detailed Instructions
 
@@ -196,7 +201,7 @@ dependency for your `deps.edn` is:
     {overtone/overtone {:mvn/version "0.10.6"}}
 ```
 
-    or for your `project.clj` (Leiningen)
+or for your `project.clj` (Leiningen)
 
 ```Clojure
     [overtone "0.10.6"]

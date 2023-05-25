@@ -7,6 +7,7 @@
         [overtone.sc.node])
   (:require [clojure.data.json :as json]
             [clojure.java.browse]
+            [clojure.pprint]
             [overtone.libs.asset :as asset]
             [overtone.sc.sample :as samp]
             [overtone.sc.buffer :as buffer]
@@ -27,6 +28,19 @@
 
 (derive FreesoundSample :overtone.sc.sample/playable-sample)
 
+(defmethod clojure.pprint/simple-dispatch FreesoundSample [b]
+  (println
+   (format "#<freesound[%s]: %d %s %fs %s %d>"
+           (name @(:status b))
+           (:freesound-id b)
+           (:name b)
+           (:duration b)
+           (cond
+             (= 1 (:n-channels b)) "mono"
+             (= 2 (:n-channels b)) "stereo"
+             :else (str (:n-channels b) " channels"))
+           (:id b))))
+
 (defmethod print-method FreesoundSample [b ^java.io.Writer w]
   (.write w (format "#<freesound[%s]: %d %s %fs %s %d>"
                     (name @(:status b))
@@ -39,7 +53,7 @@
                       :else (str (:n-channels b) " channels"))
                     (:id b))))
 
-(def ^:private base-url "https://www.freesound.org/apiv2")
+(def ^:private base-url "https://freesound.org/apiv2")
 
 (defn- freesound-url
   "Generate a freesound.org api url. Accepts an optional map of query-params as the last argument."

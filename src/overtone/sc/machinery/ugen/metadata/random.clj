@@ -12,10 +12,10 @@
       ;; 	}
       ;; }
 
-      ;;{:name "Rand"
-      ;; :args [{:name "lo", :default 0.0}
-      ;;        {:name "hi", :default 1.0}]
-      ;; :rates #{:ir}}
+   {:name "Rand"
+    :args [{:name "lo", :default 0.0}
+           {:name "hi", :default 1.0}]
+    :rates #{:ir}}
 
       {:name "RandSeed"
        :args [{:name "trig",

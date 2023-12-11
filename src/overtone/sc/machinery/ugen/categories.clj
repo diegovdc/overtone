@@ -153,6 +153,7 @@
    "ugen"                 [["Unclassified"]]
    "pv-mag-freeze"        [["FFT"]]
    "filter"               [["Filters" "Linear"]]
+   "changed"              [["Filters" "Linear"]]
    "convolution"          [["FFT"]]
    "t-ball"               [["Filters" "Nonlinear"]]
    "klang"                [["Generators" "Deterministic"] ["Filters" "Linear"]]

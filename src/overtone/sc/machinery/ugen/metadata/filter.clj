@@ -738,6 +738,18 @@
           impulse response of the filter. Note that if attacktime ==
           decaytime then the signal cancels out and if attacktime >
           decaytime then the impulse response is inverted."
+    :auto-rate true}
+
+   {:name "Changed",
+    :args [{:name "input"
+            :doc "signal input"}
+
+           {:name "threshold"
+            :default 0
+            :doc "threshold"}]
+
+    :check (nth-input-stream? 0)
+    :doc "Triggers when a value changes"
     :auto-rate true}])
 
 (def detect-silence

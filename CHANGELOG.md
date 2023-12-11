@@ -1,88 +1,150 @@
-# Change Log
-## Master
-* Fix printing of huge map when calling instruments with Cider #432
-* Fix size checks to multichannel buffer writes #338
-* Add clj-kondo support #493
+# Unreleased
 
-## Version 0.10.6 (19th May 2019)
+This is the first version without the internal SuperCollider server
+(libscsynth). See [this mailing list post](https://groups.google.com/g/overtone/c/qndjDV5FS9Y/m/lPo4QFYpAAAJ)
+for the reasoning behind that change. This also means we could drop the bulk of our dependencies, 
+making Overtone much lighter.
+
+Our work continues to keep Overtone relevant for years to come. We've fixed a
+bunch of other long standing issues large and small, modernized the release
+tooling, and improved and added many docstrings.
+
+Since Linux users in particular face a rather confusing audio landscape, we've
+added a [Linux Audio Primer](https://github.com/overtone/overtone/wiki/Linux-Audio-Primer) to the
+wiki, to help you get situated.
+
+## Changed
+
+- Remove embedded (internal) SuperCollider server 
+- Provide clearer output about what it's doing when starting an external `scsynth`
+- Remove `project.clj`, switch to full Clojure CLI based tooling (see `bin/proj`)
+- Use `at-at` from Clojars, rather than inlining it here
+- Detect PipeWire only systems, and prefix `scynth` with `pw-jack`, if it's available
+
+## Added
+
+- Add Karl Thorssens sampled trumpet instrument (`overtone.inst.sampled-trumpet`)
+- Added `set-fret` and `slide-string` to `overtone.synth.stringed` (#287)
+- Added `freesound-sample-pack`, for downloading a whole pack at once
+- Add an example file for the stringed synths (#287)
+- Add an alias `lin-env` for `lin`, for backwards compatibility
+- On the generated docstring for ugens that collide with Clojure built-ins, mention that you can add a final `:force-ugen` argument as a hint to treat it as a ugen (#505)
+- Store Freesound token in between sessions (#506)
+
+## Fixed
+
+- Fix an issue where Clojure fails to resolve the right `Thread/sleep` implementation on newer JVMs (#502)
+- Fix calling synths/instruments with 21 arguments or more (#504)
+- Fix the namespace `overtone.inst.synth` on Clojure 1.11 (#505)
+- Mark `abs` as a Clojure numerical function, to make sure it is treated as a UGen when its arguments are not numerical (#505)
+- Make `synth`/`defsynth` and `inst`/`definst` take the same form of params (fixes regression, and makes `synth`/`inst` more useful)
+- Ignore errors in `jack_lsp`. Wayland based systems often don't have this command, in which case people can connect SuperCollider to their audio device manually, we should not fail for that.
+- Handle a 429 "too many requests" from Freesound more gracefully
+
+# 0.11.0 (2023-11-02 / 2907605ba)
+
+The first release in a number of years, and the first step in reviving Overtone,
+and keeping it relevant for years to come.
+
+* Fix `overtone.music.pitch/dec-last` (#437)
+* Return notes in ascending order in `overtone.music.pitch/chord`
+* Fix printing of huge map when calling instruments with Cider (#432)
+* Fix size checks to multichannel buffer writes (#338)
+* Add clj-kondo support (#493)
+* Fix broken version comparison in args/SC-ARG-INFO (#449)
+* OSC: use #getHostScript to fallback on hostname string (#450)
+* Upgrade dependencies (#456)
+* Add support for the `grain-buf` ugen (#470)
+* use canonical URL for freesound API (#479)
+* Fix window paths to allow downloading samples (#487)
+* Removed obsolete JVM option CMSConcurrentMTEnabled (#488)
+* Read synthdef files correctly (#489) 
+* Fix buffer reading (#490)
+* Add clj-kondo support (see `overtone.linter`) (#493)
+* Qualify the overtone ns in lein example (#495)
+
+With thanks to contributors: Andréas Kündig, dvc, Hlöðver Sigurðsson, Lee Araneta, Markku Rontu, Matt Kelly, Nada Amin, Paulo Rafael Feodrippe, Perry Fraser, Phillip Mates, Wesley Merkel
+
+# Version 0.10.6 (19th May 2019)
 * major bug fix: make sure that deps.edn is loaded from the classpath if it's not found locally (version 0.10.5 will crash when used with leiningen)
 
-## Version 0.10.5 (18th May 2019)
+# Version 0.10.5 (18th May 2019)
 * overtone can now be used with tools.deps
-* fix classException for note and chord function $428
+* fix classException for note and chord function #428
 * failures in the test runner fixed
 * alert linux users in case jack server wasn't started prior to external-server connection runner
 
-## Version 0.10.4 (8th May 2019)
-# ugens
+# Version 0.10.4 (8th May 2019)
+
+## ugens
 * `index` now available on :ir rate, but keeps defaulting to :kr.
 
-# scsynth
+## scsynth
 * now compiled against supercollider 3.9.3
 * scsynth-extras includes new plugins that can to be spec'd in metadata/extras
 * jna paths are explicitly set for every os
 * 64-bit architecture support for windows machines
 * native resources will be copied from target to project's root-dir, if present in target and missing in root-dir.
 
-# Breaking Changes
+## Breaking Changes
 * 32-bit support for internal-synths on windows is discontinued (use 64-bits instead)
 * Linux: Jack client name now defaults to `Overtone` instead of `SuperCollider` #409
 * `load-samples` now accepts many directory and/or file paths, this breaks the functionality of the previous varag sequence.
 * freesound.org samples are now saved with filename and extension, preserving safe-filenames for tmp storage (this causes all freesound.org samples to be redownloaded if they are cached from older overtone version)
 
-# Improvements
+## Improvements
 * `add` parameter added to `var-saw`
 * `overtone.music.pitch/rand-chord` now vararg with `inversions` parameter
 * `sampled-flute` and `sampled-piano` now load faster from cache
 
-# New Fns
+## New Fns
 * `overtone.sc.sample/load-samples-async` works like `load-samples` a faster but unsafer alternative to `load-samples`
 
-## Version 0.10.3 (11th October 2017)
+# Version 0.10.3 (11th October 2017)
 
-# Bug Fix
+## Bug Fix
 * `overtone.sc.vbap` any? now called `some-element?` and doesn't rely on Clojure 1.9
 
-## Version 0.10.2 (30th August 2017)
+# Version 0.10.2 (30th August 2017)
 
-# Breaking Changes
+## Breaking Changes
 
 * `inst?` has been renamed to `instrument?`
 
-# New Fns
+## New Fns
 * `overtone.algo.euclidean-rhythm` Generates euclidean rhythms using bjorklund's algorithm.
 
-# New example
+## New example
 * `overtone.examples.midi.keyboard` `sustain-ding` Creates an midi instrument with a sustain parameter.
 
-# Improvements
+## Improvements
 * `overtone` is now running on clojure-1.9-alpha
 * `freesound` gives better error message when file/sample is not found.
 * `overtone.sc.vbap` uses clojure 1.9's `clojure.core.any?`, removes replace symbol warnings.
 
-# Bug Fixes
+## Bug Fixes
 * Prevent double trigger of freesound samples by setting #318
 * Replace `use` with `:use` for Clojure 1.9 compatability.
 * Fix error when Supercollider version is in development
 * Fix warning for deprecated CMSIncrementalMode
 * `connect-to-external-server` logs correctly configured port number
 
-## Version 0.10.1 (1st April 2016)
+# Version 0.10.1 (1st April 2016)
 
-# Breaking Changes
+## Breaking Changes
 
 * `control-bus-set-range!` arguments have been updated (to match OSC
   API).  start and len args have been removed and offest params have
   been added.
 * Freesound API has been updated to v2 and now requires a key :-(
 
-# New Synths
+## New Synths
 
 * `mono-play-buffer-partial`
 * `stereo-play-buffer-partial`
 * Sample flute with vibrato
 
-# New ugens/cgens
+## New ugens/cgens
 
 * `dyn-klang`
 * `dyn-klank`
@@ -95,7 +157,7 @@
 * `grain-fm`
 
 
-# New Fns
+## New Fns
 
 * `sputter` - probabilistic repetition of a list's elements
 * `buffer-mix-to-mono` - create a new mono buffer by mixing a stereo buffer
@@ -108,7 +170,7 @@
 * `env-adsr-ng` non-gated ADSR envelope
 
 
-# New clock
+## New clock
 Add new internal server clock with control-rate resolution. Introduces the folloing functions:
 
 * `server-clock-n-ticks`
@@ -120,9 +182,7 @@ And also a new group: `foundation-timing-group` which is at the head of
 all groups. There's also a new two-channel global clock-bus:
 `server-clock-b`.
 
-
-# Improvements
-
+## Improvements
 
 * Make metronome safe to use across multiple threads
 * `*add-current-namespace-to-synth-name*`- new dynamic var for switching off auto namespacing of a synthdef name
@@ -137,20 +197,20 @@ all groups. There's also a new two-channel global clock-bus:
 * Only auto-allocate the required number of audio busses based on sound card properties.
 * Add support for par-groups (for supernova)
 
-# Bug Fixes
+## Bug Fixes
 
 * Graphviz - draw `:ir` rate control ugens with dashes
 * `node-tree-seq` now works correctly with no args
 * `defunk` now handles `nil` correctly in args
 
 
-## Version 0.9.1 (25th November 2013)
+# Version 0.9.1 (25th November 2013)
 
 Version bump forced by Clojars missing a commit. Nothing new here.
 
-## Version 0.9.0 (25th November 2013)
+# Version 0.9.0 (25th November 2013)
 
-### New Committers
+## New Committers
 
 * Mike Anderson
 * Karsten Schmidt
@@ -159,9 +219,9 @@ Version bump forced by Clojars missing a commit. Nothing new here.
 * Kevin Irrwitzer
 * James Petry
 
-### Major Additions & Changes
+## Major Additions & Changes
 
-#### apply-*
+### apply-*
 
 `apply-at` has been renamed to `apply-by` which more
  correctly represents its semantics as it applies the function *before*
@@ -169,7 +229,7 @@ Version bump forced by Clojars missing a commit. Nothing new here.
  fn *at* the specified time. To update, simply grep for all occurences of
  `apply-at` and replace with `apply-by`.
 
-#### Synth Positioning
+### Synth Positioning
 
 When triggering synths it was possible to specify a position for the
 synth node to be executed in the node tree. This is important for
@@ -210,7 +270,7 @@ Currently, you'll get an exception if you use the old style syntax. This
 means that the old keywords are still unavailable to synth designs. This
 will be relaxed in a future version.
 
-#### MIDI
+### MIDI
 
 The MIDI API has been substantially revamped. This is in the Apple
 tradition of actually reducing functionality with the aim of making the
@@ -230,7 +290,7 @@ to the event system. You have access to the list of detected devices
 `examples/midi/basic.clj` for more a quick tour of the MIDI API.
 
 
-#### Graphviz
+### Graphviz
 
 If you're working on a sophisticated synth design, or just simply want
 to have another perspective of a given synth's design, it's often useful
@@ -269,7 +329,7 @@ minor niggles on Linux/Windows are happily
 considered. `show-graphviz-synth` is currently pretty much guaranteed
 not to work on Windows, but it would be awesome if it did.
 
-#### Bus monitoring
+### Bus monitoring
 
 One aspect of Overtone which is seeing active development is means with
 which to monitor the internal values within running synths. Overtone
@@ -282,8 +342,7 @@ rather the direct value of the control bus. For multi-channel buses, an
 offset may be specified. Current amplitude is updated within the
 returned atom every 50 ms.
 
-
-#### Persistent store
+### Persistent store
 
 Overtone now supports a simple persistent key value store which is
 essentially a Clojure map serialised as EDN in file with the path
@@ -292,7 +351,7 @@ essentially a Clojure map serialised as EDN in file with the path
 is meant merely as a simple convenience mechanism for sharing data
 between Overtone projects.
 
-#### Stopping and Clearing Default Group
+### Stopping and Clearing Default Group
 
 Overtone has long provided `stop` which kills all synths in the default
 group. However, it doesn't clear out all the subgroups which is
@@ -304,7 +363,7 @@ them. These 'safe' groups can now be stopped with `stop-all` and also
 all the subgroups can be cleared out with `clear-all`. For more
 information on the default group structure see the `foundation-*` fns.
 
-#### Node events
+### Node events
 
 It's now possible to register oneshot handler function for when specific
 nodes are created, destroyed, paused or started with the new `on-node-*`
@@ -321,7 +380,7 @@ node is started:
     (node-pause f)
     (node-start f) ;;=> "Node 31 started!"
 
-#### Synth Triggers
+### Synth Triggers
 
 It is possible to send information out of a specific synth and into
 Overtone as an event via the `send-trig` ugen. This is now a little bit
@@ -344,7 +403,7 @@ functions to execute when data from that specific synth is received:
     ;; create a new instance of synth foo with trigger id as a param
     (foo uid)
 
-#### Envelopes
+### Envelopes
 
 Using envelopes effectively has long been a dark Overtone art. They have
 a huge potential for powerful manipulation of synth internals to finely
@@ -367,7 +426,7 @@ parameter. This means that it's now possible to request different
 keywords for different envelope segments. Take a look at the `envelope`
 docstring for extensive information.
 
-#### Resonate Workshop
+### Resonate Workshop
 
 Karsten 'Toxi' Schmidt has kindly donated his resonate workshop
 files to the examples folder. These can be found within
@@ -375,7 +434,7 @@ files to the examples folder. These can be found within
 awesome workshops, so it's wonderful to be able to ship with this
 material for everyone to play.
 
-#### Docstrings
+### Docstrings
 
 Although it can be fairly argued that Overtone is still missing end-user
 documentation (something we're currently working hard at fixing) we have
@@ -384,7 +443,7 @@ with this tradition. All of our end-user functions have full docstrings
 and many of them have been improved and tweaked to make them more
 readable and understandable.
 
-### New fns
+## New fns
 
 * `midi-find-connected-devices` - list all auto-connected MIDI devices
 * `midi-find-connected-device` - list all auto-connected MIDI devices
@@ -430,7 +489,7 @@ readable and understandable.
 * `env-adsr` - duplicate of `adsr`
 * `env-asr` - duplicate of `asr`
 
-### Renamed fns
+## Renamed fns
 
 * `node-get-control` -> `node-get-controls`
 * `bus-set!` -> `control-bus-set!`
@@ -444,7 +503,7 @@ readable and understandable.
 * `connected-midi-receivers` -> `midi-connected-receivers`
 * `apply-at` -> `apply-by`
 
-### Deprecated fns
+## Deprecated fns
 
 * `midi-devices`
 * `midi-device?`
@@ -466,16 +525,16 @@ readable and understandable.
 * `midi-mk-byte-array`
 * `midi-play`
 
-### New synths
+## New synths
 
 * `overtone.synth.sts/prophet`
 * `overtone.synth.retro/tb-303`
 
-### Renamed synths
+## Renamed synths
 
 * `bitcrusher` -> `fx-bitcrusher`
 
-### User visible improvements
+## User visible improvements
 
 * Report `:num-control-busses` in `server-info`
 * Rename `apply-at` to `apply-by` and implement `apply-at` to apply the fn at the specified time, not before it.
@@ -493,8 +552,7 @@ readable and understandable.
 * Make more things killable - Integers, Floats, Synths, regexs
 * idify synth args
 
-
-### Internal improvemnts
+## Internal improvemnts
 
 * automatically create `MidiOutReceiver` objects for all detected midi out receivers to enable comms.
 * Reduce `MAX-OSC-SAMPLES` to work within the constraints of UDP packets
@@ -512,7 +570,7 @@ readable and understandable.
 * Add Coyote onset detector ugen to exceptions which can take ar ugens
 * Catch `UnsatisfiedLinkError` when attempting to load native libs and print out error.
 
-### Bugfixes
+## Bugfixes
 
 * Calling either `stop-player` or `kill-player` on the return obj from one of the scheduling fns such as `periodic` or `after-delay` now has correct behaviour.
 * Fix `group-free` to actually delete a group
@@ -525,15 +583,15 @@ readable and understandable.
 * Add ugen checks for `balance2`
 * Fixed `vintage-bass` inst to be audible
 
-## Version 0.8.1 (28th January 2013)
+# Version 0.8.1 (28th January 2013)
 
-### Bugfixes
+## Bugfixes
 
 * Fix bug in free-bus which was still assuming audio and control busses were differentiated by keywords rather than records. Added new protocol IBus to handle the polymorphism for this fn.
 
-## Version 0.8.0 (26th January 2013)
+# Version 0.8.0 (26th January 2013)
 
-### New Committers
+## New Committers
 
 (Some of these committers may have made contributions to previous versions, but this is the first time they're mentioned in this change log).
 
@@ -549,7 +607,7 @@ readable and understandable.
 * Mat Schaffer
 * Joel Jorgensen
 
-### Major Features
+## Major Features
 
 * New, all Clojure, in-memory scsynth interface using clj-native
 * New (optionally disabled) machinery to stop the control and modification of non-live nodes (controlling loading nodes blocks the current thread and controlling destroyed nodes throws an exception).
@@ -560,7 +618,7 @@ readable and understandable.
 * Clojure 1.5 compatibility
 
 
-### New fns
+## New fns
 * `on-latest-event` - Handles events with minimum latency - drops events it can't handle in time
 * `event-monitor-on` - prints out all events to stdout (can be very noisy!)
 * `event-monitor-off` - turns off event monitoring
@@ -590,7 +648,7 @@ readable and understandable.
 * `pp-node-tree` - pretty-print the node-tree to *out*
 * `interspaced` - calls a fn repeatedly with an interspacing of ms-period. i.e. the next call of the fn will happen ms-period ms after the completion of the previous call.
 
-### New macros
+## New macros
 
 * `with-no-ugen-checks` - Disables ugen checks in containing form instead printing warning messages instead of raising exceptions. This is useful for the cases when the ugen checks are over zealous.
 * `with-ugen-debugging` - Prints debugging information for the ugens within the containing form.
@@ -599,16 +657,16 @@ readable and understandable.
 * `with-inactive-buffer-modification-error` - Sets the error strategy for inactive buffer modification. Options are :exception, :warning and :silent
 * `with-inactive-modification-error` - Sets the error strategy for both inactive node and buffer modification. Options are :exception, :warning and :silent
 
-### Removed fns
+## Removed fns
 * `on-trigger` - prefer event system
 * `remove-trigger` - prefer event system
 * `remove-all-handlers` - calling this removed Overtone's default handlers rendering the system useless.
 
-### Renamed fns
+## Renamed fns
 
 * `stop-midi-player` -> `midi-player-stop` - It can now handle keys
 
-### New Insts
+## New Insts
 
 * `supersaw`
 * `dance-kick`
@@ -618,7 +676,7 @@ readable and understandable.
 * `cs80lead`
 * `simple-flute`
 
-### New Synths
+## New Synths
 
 New timing synths
 * `trigger`
@@ -635,7 +693,7 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 
 * `sampled-piano`- now we also have a synth version of the sampled piano with support for `:out-bus` arg.
 
-### cgens
+## cgens
 
 * `sum` - Adds all inputs together
 * `mix` - Now divides the inputs signals by the number of number of inputs
@@ -644,7 +702,7 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * `range-lin` - maps ugens with default range of -1 to 1 to specified range
 * `poll` - now implemented via `send-reply` to print out via Overtone stdout and remove flushing latency.
 
-### User Visible Improvements
+## User Visible Improvements
 
 * Further work on SuperCollider book translation (`/docs/sc-book`)
 * `out-bus` argument now added to a number of synths. This should be considered standard practice.
@@ -680,7 +738,7 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * Add ability to handle bus, buffer (and other) arguments in synth creation and control messages without requiring explicit :id extraction
 * New `~/.overtone/config.clj` example documenting all config options. Found in `docs/config.clj`
 
-### Internal Improvements
+## Internal Improvements
 
 * SCUGen now stores the ugen spec
 * SynthNodes now store the original synth design and arguments
@@ -702,7 +760,7 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * add new `os-name` and `os-description` helper fns
 * update `osc-clj` dependency (which now supports nested OSC bundles in the macro `in-osc-bundle`) and move to using the new non-nested osc bundle macro `in-unested-osc-bundle` to explicitly not create OSC bundles for SC comms. However, the nested bundle functionality may be useful for communicating with other OSC servers which support this behaviour (which is in the OSC spec).
 
-### New Examples
+## New Examples
 
 * Examples are now located in `overtone/examples`
 * Get on the bus - introduction to busses
@@ -714,13 +772,13 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * Bass and drum funk
 * Add fun new schroeder-reverb-mic example
 
-### Bugfixes
+## Bugfixes
 
 * Many, many many! See git history for full list.
 
-## Version 0.7.1 (27th June 2012)
+# Version 0.7.1 (27th June 2012)
 
-### Improvements
+## Improvements
 
 * Improve booting of external server on Windows.
 * Working dir is now set on Windows machines for `scsynth`
@@ -728,16 +786,16 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * Users may set :sc-path in their config to point to their scsynth
   executable if it's not to be found in the default locations.
 
-## Version 0.7 (26th June 2012)
+# Version 0.7 (26th June 2012)
 
-### New Committers
+## New Committers
 * Damion Junk
 * Jacob Lee
 * Fabian Steeg
 * Michael Bernstein
 * Ian Davies
 
-### New fns
+## New fns
 * `overtone.sc.buffer/buffer-alloc-read` - read a audio file from path into a buffer
 * `overtone.sc.mixer/recording?` - returns true if Overtone is currently recording audio
 * `overtone.sc.buffer/buffer-info?` - determins whether the arg is buffer information
@@ -761,18 +819,18 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * `overtone.studio.inst/inst-volume` - control the volume of a specific inst
 * `overtone.studio.inst/inst-pan` - control the pan of a specific inst
 
-### Renamed fns
+## Renamed fns
 * `buffer-cue-close` -> `buffer-stream-close`
 * `find-note-name` -> `find-pitch-class-name`
 
-### New cgens
+## New cgens
 * `tap`- Listen in to values flowing through scsynth and have them periodically update atoms associated with a synth instance for easy reading from Clojure.
 * `scaled-play-buf` - similar to `play-buf` but auto-scales rate
 * `scaled-v-disk` - similar to `v-disk-in` but auto-scales rate
 * `hold` - hold input source for set period of time, then stop safely
 * `local-buf` - now supports SCLang's argument ordering
 
-### Improvements
+## Improvements
 * defsynths now no longer need only one root - therefore they now support side-effecting ugen trees.
 * Varied welcome messages
 * definsts and friends now accept a single arg map
@@ -805,7 +863,7 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * Improve ugen error checking
 * Add additional SuperCollider paths for 3.5.1 version of SC
 
-### New protocols
+## New protocols
 * `IMetronome`
 * `ISynthNode`
 * `ISynthGroup`
@@ -814,11 +872,11 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * `IControllableNode`
 * `IKillable`
 
-### New Examples
+## New Examples
 * `examples/piano_phase.clj`
 * `examples/row_row_row_your_boat.clj`
 
-### Bugfixes
+## Bugfixes
 * Sampled-piano link now points to a hopefully more persistent freesound version of samples
 * Allow creation of a buffer within the body of an at macro
 * Fix race condition by updating active-synth-nodes* before sending OSC message.
@@ -835,15 +893,15 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * Fix issue caused by node not returning the synthdef
 * Fix OutputProxy printing errors by adding name field to record
 
-## Version 0.6 (19th Dec 2011)
+# Version 0.6 (19th Dec 2011)
 
-### New Committers
+## New Committers
 * Matthew Gilliard
 * Dave Ray
 * Harold Hausman
 * Jennifer Smith
 
-### New
+## New
 
 * Improve scsynth executable lookup strategy for linux
 * Warn users if the number of samples they're attempting to write exceeds the capacity of UDP packets
@@ -877,17 +935,17 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * Illustrate that the mixer is receiving too high volumes by outputting pink noise in addition to printing warning messages (this bevaviour is likely to change in a future version).
 
 
-### New Instruments
+## New Instruments
 * Add sampled-piano (piano samples are linked to as an asset)
 
-### Examples
+## Examples
 
 * Add an example of mapping a control bus onto synth params
 * Add Schroeder-reverb example
 * Add feedback example
 * Festive Troika melody complete with fully synthesised bells
 
-### Bugfixes
+## Bugfixes
 
 * Fix cgens to deal with the case where arg names were overriden by the explicit bindings created with #'with-overloaded-ugens
 * Fix #'bus-set!
@@ -901,16 +959,16 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * Fix :shutdown on-sync-event callback fn ::reset-cached-server-info
 * Fix hardcoded wav path with freesound asset.
 
-## Version 0.5 (17th Oct 2011)
+# Version 0.5 (17th Oct 2011)
 
-### New Committers
+## New Committers
 * Nick Orton
 * Kevin Neaton
 * Jowl Gluth
 * Chris Ford
 * Philip Potter
 
-### New
+## New
 * Add new anti-ear-bleeding (TM) safety harness
 * Add noise TOO LOUD!!! warnings when output is above a safe threshold
 * Add repl.shell fns to core and live
@@ -950,14 +1008,14 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * Rename #'status ->  #'server-status
 * Rename #'connected? and #'disconnected? -> #'server-connected? and #'server-disconnected? respectively
 
-### Examples
+## Examples
 * Add Pepijn's vocoder example
 
-### Deprecated
+## Deprecated
 * Remove await-promise as deref in Clojure 1.3 now accepts a timeout val.
 * out cgen doesn't support auto-rating so need to explicitly specify when we're outputting to a control bus
 
-### Bugfixes
+## Bugfixes
 * Fix minor niggling bugs in shell fns
 * Ensure osc lib fns are in scope withing server (fixes #'at macro)
 * (use :reload-all 'overtone.live) now works again
@@ -977,9 +1035,9 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * Fix FAILURE /n_free Node not found warning after stopping a currently running demo
 * Fix ugen arg checking fns
 
-## Version 0.4 (25th Sept 2011)
+# Version 0.4 (25th Sept 2011)
 
-### New
+## New
 
 * Support for Clojure 1.3
 * Provide more separation between 'public' and 'private' APIs by moving non-public aspects of overtone.sc into overtone.sc.machinery
@@ -999,26 +1057,26 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * Various ugen metadata fixes
 * Various docstring improvements
 
-### Examples
+## Examples
 * Add piano piece - Gnossienne No. 1 by Erik Satie
 
-### Helpers
+## Helpers
 * Add some useful string manipulation fns
 * Add some file helper fns
 * Move splay-pan into helpers ns
 * Move sc-lang converter here
 
-### REPL
+## REPL
 * Add odoc - Overtone version of doc which gives information about ugen colliders
 * Add super rudimentary (but still pretty fun) shell fns ls and grep
 * Make find-ug and find-ug-doc macros so you can pass unquoted symbols as args
 * Allow ugen searches to also match the ugen name in addition to its full doc string
 * Teach find-ug to print the full docstring of the match if only one is returned
 
-### Deprecated
+## Deprecated
 * Support for vijual representation of node tree
 
-### Bugfixes
+## Bugfixes
 
 * Fix clear-ids in allocator
 * Don't explicitly free node id when freeing node as this is already handled by a callback
@@ -1027,9 +1085,9 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * Fix snare drum inst
 
 
-## Version 0.3 (12th Sept 2011)
+# Version 0.3 (12th Sept 2011)
 
-### New
+## New
 
 * Print ascii art on boot (for both internal and external servers)
 * Add :params key to ugen map
@@ -1069,8 +1127,7 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * Add lovely algorithmic piano example translated from Extempore example
 * Add other drives (D and E) to windows scsynth paths
 
-
-### New algo/music/repl fns
+## New algo/music/repl fns
 
 * choose-n
 * cosr
@@ -1081,13 +1138,13 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * find-ug-doc
 * ug-doc
 
-### New cgens
+## New cgens
 
 * sound-in
 * mix
 * splay
 
-### New Examples
+## New Examples
 
 * dbrown
 * diwhite
@@ -1096,7 +1153,7 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * send-reply
 * compander
 
-### Bugfixes
+## Bugfixes
 
 * Fix piano inst - deal with 20 arg restriction by using apply
 * Fix missed references to :free (keywords are no longer allowed as param vals)
@@ -1104,15 +1161,15 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * Fix blues example
 * Pause thread booting Overtone until the boot has fully completed
 
-## Version 0.2.1 (4th August 2011)
+# Version 0.2.1 (4th August 2011)
 
-### Bugfixes
+## Bugfixes
 
 * Fix missing parens in drum and synth
 
-## Version 0.2 (3rd August 2011)
+# Version 0.2 (3rd August 2011)
 
-### New
+## New
 
 * Added example implementation of MAD (Music as Data) notation
 * Add ugen arg rate checking - ensures ugen rates are <= parent rates for most cases
@@ -1165,7 +1222,7 @@ Started work porting synths from Ixi Lang (`overtone/synth/ixi`):
 * Re-implement pseudo-ugens with cgens
 * Re-implement a number of demand ugens with cgens allowing to match the arg ordering of SCLang
 
-### Bugfixes
+## Bugfixes
 
 * Fix print-classpath to refer to the project's classpath
 * Freeing control bus previously freed an audio bus of the same name

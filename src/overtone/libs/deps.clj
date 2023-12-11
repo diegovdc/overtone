@@ -1,8 +1,7 @@
-(ns
-    ^{:doc "A basic dependency system for specifying the execution of
-           fns once dependencies have been met."
-      :author "Sam Aaron & Jeff Rose"}
-  overtone.libs.deps
+(ns overtone.libs.deps
+  "A basic dependency system for specifying the execution of fns once dependencies
+  have been met."
+  {:author "Sam Aaron & Jeff Rose"}
   (:require [clojure.set :as set]
             [overtone.config.log :as log]))
 
@@ -174,8 +173,8 @@
   ([deps] (wait-until-deps-satisfied deps 20 0.1))
   ([deps timeout] (wait-until-deps-satisfied deps timeout 0.1))
   ([deps timeout wait-time]
-     (let [timeout-ms (* 1000 timeout)
-           wait-time  (* 1000 wait-time)]
+     (let [timeout-ms (long (* 1000 timeout))
+           wait-time  (long (* 1000 wait-time))]
        (if (<= timeout-ms 0)
          (while (not (deps-satisfied? deps))
            (Thread/sleep wait-time))

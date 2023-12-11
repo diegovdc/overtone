@@ -5,8 +5,9 @@
 ;; Other instruments (like bass-guitar, ukelele, mandolin, etc.) may
 ;; use the same basic instrument.  Watch this space...
 (ns overtone.synth.stringed
-  ^{:doc "A Stringed Synth Generator Macro & Guitar Instrument"
-    :author "Roger Allen"}
+  "A Stringed Synth Generator Macro & Guitar Instrument"
+  {:author "Roger Allen"}
+  (:refer-clojure :exclude [abs])
   (:use [overtone.music pitch time]
         [overtone.sc envelope node server synth ugens]
         [overtone.sc.cgens mix]))
@@ -40,13 +41,12 @@
         note-gate-pairs (apply vector (map vector note-ins gate-ins))
         env-gen-fn (if free-on-silence
                      '(fn [x] (overtone.sc.ugens/env-gen
-                              (overtone.sc.envelope/asr 0.0001 1 0.1)
-                              :gate (second x)
-                              :action overtone.sc.ugens/FREE))
+                               (overtone.sc.envelope/asr 0.0001 1 0.1)
+                               :gate (second x)
+                               :action overtone.sc.ugens/FREE))
                      '(fn [x] (overtone.sc.ugens/env-gen
-                              (overtone.sc.envelope/asr 0.0001 1 0.1)
-                              :gate (second x))))
-        ]
+                               (overtone.sc.envelope/asr 0.0001 1 0.1)
+                               :gate (second x))))]
     `(defsynth ~name
        ~(str "a stringed instrument synth with " num-strings
              " strings mixed and sent thru
@@ -91,7 +91,7 @@
              ;; distortion from fx-distortion2
              k#   (~'/ (~'* 2 ~'distort') (~'- 1 ~'distort'))
              dis# (~'/ (~'* src# (~'+ 1 k#))
-                       (~'+ 1 (~'* k# (abs src#))))
+                   (~'+ 1 (~'* k# (~'abs src#))))
              vrb# (free-verb dis# ~'rvb-mix ~'rvb-room ~'rvb-damp)
              fil# (rlpf vrb# ~'lp-freq ~'lp-rq)]
          (out ~'out-bus (pan2 (~'* ~'amp fil#) ~'pan))))))
@@ -114,30 +114,30 @@
   (keyword (format "%s-%d" s i)))
 
 (defn- now+
-  "add an epsilon of time to (now) to avoid lots of 'late' error messages"
+  "Add an epsilon of time to (now) to avoid lots of 'late' error messages"
   []
   (+ (now) 21)) ;; 21ms seems to get rid of most for me.
 
 ;; ======================================================================
 ;; Main helper functions used to play the instrument: pick or strum
 (defn pick-string
-  "pick the instrument's string depending on the fret selected.  A
+  "Pick the instrument's string depending on the fret selected.  A
    fret value less than -1 will cause no event; -1 or greater causes
    the previous note to be silenced; 0 or greater will also cause a
    new note event."
   ([the-strings the-inst string-index fret t]
-     (let [the-note (fret-to-note (nth the-strings string-index) fret)]
-       ;; turn off the previous note
-       (if (>= the-note -1)
-         (at t (ctl the-inst (mkarg "gate" string-index) 0)))
-       ;; NOTE: there needs to be some time between these
-       ;; FIXME: +50 seems conservative.  Find minimum.
-       (if (>= the-note 0)
-         (at (+ t 50) (ctl the-inst
-                           (mkarg "note" string-index) the-note
-                           (mkarg "gate" string-index) 1)))))
+   (let [the-note (fret-to-note (nth the-strings string-index) fret)]
+     ;; turn off the previous note
+     (if (>= the-note -1)
+       (at t (ctl the-inst (mkarg "gate" string-index) 0)))
+     ;; NOTE: there needs to be some time between these
+     ;; FIXME: +50 seems conservative.  Find minimum.
+     (if (>= the-note 0)
+       (at (+ t 50) (ctl the-inst
+                         (mkarg "note" string-index) the-note
+                         (mkarg "gate" string-index) 1)))))
   ([the-chord-frets the-inst string-index fret]
-     (pick-string the-chord-frets the-inst string-index fret (now+))))
+   (pick-string the-chord-frets the-inst string-index fret (now+))))
 
 ;; ======================================================================
 (defn strum-strings
@@ -145,50 +145,50 @@
    a strum duration of strum-time at t.  If the-chord is a vector, use
    it directly for fret indexes."
   ([chord-fret-map the-strings the-inst the-chord direction strum-time t]
-     (let [num-strings (count (chord-fret-map :A))
-           ;; ex: [-1 3 2 0 1 0]
-           chord-frets (if (vector? the-chord)
-                         ;; treat the-chord as a series of frets
-                         ;; and gracefully handle odd sized vectors
-                         (vec (take num-strings
-                                    (into the-chord
-                                          (vec (repeat num-strings -1)))))
-                         ;; else use the-chord as an index
-                         (chord-fret-map the-chord))
-           ;; account for unplayed strings for delta time calc. Code
-           ;; gets a bit complicated to deal with the case where
-           ;; strings are muted and don't count towards the
-           ;; strum-time.
-           ;; ex: (0 0 1 2 3 4)
-           fret-times (map first
-                           (rest (reductions
-                                  #(vector (if (>= (second %1) 0)
-                                             (inc (first %1))
-                                             (first %1))
-                                           %2)
-                                  [0 -1]
-                                  chord-frets)))]
-       (dotimes [i num-strings]
-         (let [j (if (= direction :up) (- num-strings 1 i) i)
-               max-t (apply max fret-times)
-               dt (if (> max-t 0)
-                    (* 1000 (/ strum-time max-t))
-                    0)
-               fret-delta (if (= direction :up)
-                            (- max-t (nth fret-times j))
-                            (nth fret-times i))]
-           (pick-string the-strings the-inst j
-                        (nth chord-frets j)
-                        (+ t (* fret-delta dt)))))))
+   (let [num-strings (count (chord-fret-map :A))
+         ;; ex: [-1 3 2 0 1 0]
+         chord-frets (if (vector? the-chord)
+                       ;; treat the-chord as a series of frets
+                       ;; and gracefully handle odd sized vectors
+                       (vec (take num-strings
+                                  (into the-chord
+                                        (vec (repeat num-strings -1)))))
+                       ;; else use the-chord as an index
+                       (chord-fret-map the-chord))
+         ;; account for unplayed strings for delta time calc. Code
+         ;; gets a bit complicated to deal with the case where
+         ;; strings are muted and don't count towards the
+         ;; strum-time.
+         ;; ex: (0 0 1 2 3 4)
+         fret-times (map first
+                         (rest (reductions
+                                #(vector (if (>= (second %1) 0)
+                                           (inc (first %1))
+                                           (first %1))
+                                         %2)
+                                [0 -1]
+                                chord-frets)))]
+     (dotimes [i num-strings]
+       (let [j (if (= direction :up) (- num-strings 1 i) i)
+             max-t (apply max fret-times)
+             dt (if (> max-t 0)
+                  (* 1000 (/ strum-time max-t))
+                  0)
+             fret-delta (if (= direction :up)
+                          (- max-t (nth fret-times j))
+                          (nth fret-times i))]
+         (pick-string the-strings the-inst j
+                      (nth chord-frets j)
+                      (+ t (* fret-delta dt)))))))
   ([chord-fret-map the-strings the-inst the-chord direction strum-time]
-     (strum-strings chord-fret-map the-strings the-inst the-chord
-                    direction strum-time (now+)))
+   (strum-strings chord-fret-map the-strings the-inst the-chord
+                  direction strum-time (now+)))
   ([chord-fret-map the-strings the-inst the-chord direction]
-     (strum-strings chord-fret-map the-strings the-inst the-chord
-                    direction 0.05 (now+)))
+   (strum-strings chord-fret-map the-strings the-inst the-chord
+                  direction 0.05 (now+)))
   ([chord-fret-map the-strings the-inst the-chord]
-     (strum-strings chord-fret-map the-strings the-inst the-chord
-                    :down 0.05 (now+))))
+   (strum-strings chord-fret-map the-strings the-inst the-chord
+                  :down 0.05 (now+))))
 
 ;; ======================================================================
 ;; The Guitar Instrument Code
@@ -288,8 +288,50 @@
 
 ;; ======================================================================
 ;; Main helper functions.  Use pick or strum to play the instrument.
-(def guitar-pick (partial pick-string guitar-string-notes))
-(def guitar-strum (partial strum-strings guitar-chord-frets guitar-string-notes))
+(def guitar-pick
+  "Pick a single string, takes the instrument, a string number, fret number, and
+  timestamp.
+
+  (def g (guitar))
+  (guitar-pick g 4 1 (now)) ; play a C, first fret on the B string
+  "
+  (partial pick-string guitar-string-notes))
+
+(def guitar-strum
+  "Strum a given chord, takes the instrument, a chord, strum direction, and time
+  between notes.
+
+  (def g (guitar))
+  (guitar-strum g :E :down 0.25)
+  "
+  (partial strum-strings guitar-chord-frets guitar-string-notes))
+
+;; ======================================================================
+;; Set's a fret on the-inst
+
+(defn set-fret
+  "Sets fret for the-inst on string-index"
+  [the-inst string-index fret]
+  (let [the-note (fret-to-note (nth guitar-string-notes string-index) fret)]
+    (if (= the-note -1) ;mute it
+      (ctl the-inst (mkarg "gate" string-index) 0))
+    (if (>= the-note 0) ; set other note on string-index
+      (ctl the-inst (mkarg "note" string-index) the-note))))
+
+(defn slide-string
+  "Slides the-string of the-inst from fret start-fret to fret end-fret.
+  Every note in between sounds for duration time. If keep is set the last note
+  will be fret end-fret otherwise the string gets muted."
+  [the-inst the-string start-fret end-fret start duration keep-note]
+  (at start (guitar-pick the-inst the-string start-fret))
+  (let [i (atom 1)] ; used to calculate the offset between the sub-slides
+    (doseq [fret (if (< end-fret start-fret)
+                   (reverse (range end-fret (dec start-fret)))
+                   (range start-fret (inc end-fret)))]
+      (at (+ (* @i duration) start) (set-fret the-inst the-string fret))
+      (if (and (= end-fret fret) (zero? keep-note) )
+        (at (+ (* (inc @i)  duration) start) (set-fret the-inst the-string -1)))
+      (swap! i inc))))
 
 ;; ======================================================================
 ;; Create the guitar defsynth.  Note that it is persistent and will

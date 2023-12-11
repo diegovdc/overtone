@@ -1,22 +1,24 @@
-(ns ^{:doc    "An API for interacting with the awesome free online sample resource
-            freesound.org"
-      :author "Sam Aaron, Kevin Neaton"}
-    overtone.samples.freesound
-  (:use [overtone.samples.freesound.url]
-        [overtone.samples.freesound.search-results]
-        [overtone.sc.node])
-  (:require [clojure.data.json :as json]
-            [clojure.java.browse]
-            [clojure.pprint]
-            [overtone.libs.asset :as asset]
-            [overtone.sc.sample :as samp]
-            [overtone.sc.buffer :as buffer]
-            [overtone.helpers.lib :refer [defrecord-ifn]]
-            [overtone.helpers.file :refer [*authorization-header* file-extension]]))
+(ns overtone.samples.freesound
+  "An API for interacting with the awesome free online sample resource
+  freesound.org"
+  {:author "Sam Aaron, Kevin Neaton"}
+  (:require
+   [clojure.data.json :as json]
+   [clojure.java.browse]
+   [clojure.pprint]
+   [overtone.samples.freesound.search-results :refer :all]
+   [overtone.samples.freesound.url :refer :all]
+   [overtone.sc.node :refer :all]
+   [overtone.config.store :as config]
+   [overtone.helpers.file :refer [*authorization-header* file-extension]]
+   [overtone.helpers.lib :refer [defrecord-ifn]]
+   [overtone.libs.asset :as asset]
+   [overtone.sc.buffer :as buffer]
+   [overtone.sc.sample :as samp]))
 
 (def ^:dynamic *client-id* "ea6297be42e9de76d47c")
 (def ^:dynamic *api-key* "32da10a118819877ec041752680588c62684c0b2")
-(def ^:dynamic *access-token* (atom false))
+(def ^:dynamic *access-token* (atom (config/store-get :freesound-token)))
 
 (defonce ^{:private true} __RECORDS__
   (do
@@ -97,7 +99,8 @@
               :client_secret *api-key*
               :grant_type "authorization_code"
               :code code})))]
-    (reset! *access-token* r)))
+    (reset! *access-token* r)
+    (config/store-set! :freesound-token r)))
 
 (defn authorization-instructions []
   (let [url
@@ -156,10 +159,11 @@
     (with-authorization-header (asset/asset-path url name))))
 
 (defn freesound-sample
-  "Download, cache and persist the freesound audio file specified by
-   id. Creates a buffer containing the sample loaded onto the server and
-   returns a playable sample capable of playing the sample when called
-   as a fn."
+  "Download, cache and persist the freesound audio file specified by id.
+  Creates a buffer containing the sample loaded onto the server and returns a
+  playable sample capable of playing the sample when called as a fn.
+
+  Use the `:id` property to get the buffer id, to use directly with `play-buf`."
   [id & args]
   (let [path      (freesound-path id)
         smpl      (apply samp/load-sample path args)
@@ -209,6 +213,27 @@
   [id]
   (let [url (pack-serve-url id)]
     (with-authorization-header (asset/asset-bundle-dir url))))
+
+(defn freesound-sample-pack
+  "Download, cache, and persist all of the sounds in the freesound sample pack
+  specified by id, then loads them into buffers in the SuperCollider server,
+  ready to be played. Returns a map with the keys being the names of the samples
+  as keywords, and the values being playable samples capable of playing the
+  sample when called as a fn.
+
+  Use the `:id` property to get the buffer id, to use directly with `play-buf`.
+  "
+  [id]
+  (into
+   {}
+   (for [sample-file (file-seq (java.io.File. (freesound-pack-dir id)))
+         :let [[_ id user sample-name] (re-find #"/(\d+)__([^/\.]+)__([^\.]+).wav" (str sample-file))]
+         :when sample-name]
+     [(keyword sample-name)
+      (map->FreesoundSample
+       (assoc (samp/load-sample sample-file)
+              :sample-name sample-name
+              :freesound-id (Long/parseLong id)))])))
 
 ;; ## Sound Search
 (defn- search-url

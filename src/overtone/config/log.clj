@@ -15,7 +15,7 @@
 (def ^:private LOG-APPEND true)
 (def ^:private LOG-LIMIT 5000000)
 (def ^:private LOG-COUNT 2)
-(def ^:private DEFAULT-LOG-LEVEL :warn)
+(def ^:private DEFAULT-LOG-LEVEL :info)
 (def ^:private LOG-LEVELS {:debug Level/FINE
                            :info  Level/INFO
                            :warn  Level/WARNING

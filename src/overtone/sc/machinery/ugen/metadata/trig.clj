@@ -156,6 +156,30 @@
 
           (on-event \"/foobar\" (fn [msg] (println msg)) ::handle-foobar)"}
 
+   {:name "SendPeakRMS"
+    :summary "Computes peak and power of a signal and sends the computed values back to the clients"
+    :args [{:name "sig"
+            :doc "The input signal"}
+
+           {:name "reply-rate"
+            :default 20
+            :doc "Float or Integer. Specifies the number of replies that are sent to the clients per second."}
+
+           {:name "peak-lag"
+            :default 3
+            :doc "Float or Integer. Lag time, which is applied to the peak values. This option is commonly used for GUI VU meters."}
+
+           {:name "cmd-name"
+            :default "/reply"
+            :doc "Symbol or String. Address pattern for reply message."
+            :mode :append-string }
+
+           {:name "reply-id"
+            :default -1
+            :doc "Integer id (similar to that used by send-trig)"}]
+    :default-rate :kr
+    :doc "The SendPeakRMS unit generator computes peak and power of a signal and sends the computed values back to the clients. It does not produce any output."}
+
 
    {:name "Latch"
     :summary "Sample and hold"

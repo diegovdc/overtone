@@ -275,8 +275,11 @@
   ([sink amount]
    (midi-pitch-bend sink amount 0))
   ([sink amount channel]
-   (let [msg (ShortMessage.)]
-     (.setMessage msg ShortMessage/PITCH_BEND channel amount amount)
+   (let [msg (ShortMessage.)
+         ;; Calculate LSB and MSB for 14-bit pitch bend resolution
+         lsb (bit-and amount 0x7F) ;; Lower 7 bits
+         msb (bit-shift-right amount 7)]
+     (.setMessage msg ShortMessage/PITCH_BEND channel lsb msb)
      (midi-send-msg (:receiver sink) msg -1))))
 
 (def hex-char-values (hash-map

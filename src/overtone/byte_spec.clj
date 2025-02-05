@@ -1,13 +1,12 @@
 (ns overtone.byte-spec
+  "A DSL for specifying the layout of binary data formats.
+  Look at synthdef.clj that defines the format for SuperCollider
+  synthesizer definition (.scsyndef) files for an example of usage."
   (:import (java.net URL)
            (java.io FileInputStream FileOutputStream
                     DataInputStream DataOutputStream
                     BufferedInputStream BufferedOutputStream
                     ByteArrayOutputStream ByteArrayInputStream)))
-
-;; This file implements a DSL for specifying the layout of binary data formats.
-;; Look at synthdef.clj that defines the format for SuperCollider
-;; synthesizer definition (.scsyndef) files for an example of usage.
 
 (def ^{:dynamic true} *spec-out* nil)
 (def ^{:dynamic true} *spec-in*  nil)
@@ -88,7 +87,7 @@
                     (next (next specs))
                     (next (next (next specs))))
             fields (conj fields spec)]
-                                        ;(println (str "field: " spec))
+        ;; (println (str "field: " spec))
         (recur specs fields))
       {:name (str spec-name)
        :specs fields})))
@@ -146,9 +145,9 @@
 (declare spec-write)
 
 (defn- spec-write-array [spec ary]
-                                        ;(println (str "WRITE-A: [ "
-                                        ;     (if (map? spec) (:name spec) spec) " ](" (count ary) ")"))
-                                        ;(println "ary: " ary)
+  ;; (println (str "WRITE-A: [ "
+  ;;      (if (map? spec) (:name spec) spec) " ](" (count ary) ")"))
+  ;; (println "ary: " ary)
   (let [nxt-writer (cond
                      (contains? WRITERS spec) (spec WRITERS)
                      (map? spec) (partial spec-write spec)
@@ -170,20 +169,20 @@
   [spec data]
   (doseq [{:keys [fname ftype fdefault]} (:specs spec)]
     (cond
-                                        ; count of another field starting with n-
+      ;; count of another field starting with n-
       (.startsWith (name fname) "n-")
       (let [wrt (ftype WRITERS)
             c-field (get data (count-for fname))
             cnt (count c-field)]
         (wrt cnt))
 
-                                        ; an array of sub-specs
+      ;; an array of sub-specs
       (vector? ftype) (spec-write-array (first ftype) (fname data))
 
-                                        ; a single sub-spec
+      ;; a single sub-spec
       (map? ftype) (spec-write ftype (fname data))
 
-                                        ; a basic type
+      ;; a basic type
       (contains? WRITERS ftype) (spec-write-basic ftype fname (fname data) fdefault)
 
       true (throw (IllegalArgumentException.

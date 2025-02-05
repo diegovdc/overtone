@@ -1,22 +1,31 @@
-(ns ^{:doc    "An API for interacting with the awesome free online sample resource
-            freesound.org"
-      :author "Sam Aaron, Kevin Neaton"}
-    overtone.samples.freesound
-  (:use [overtone.samples.freesound.url]
-        [overtone.samples.freesound.search-results]
-        [overtone.sc.node])
-  (:require [clojure.data.json :as json]
-            [clojure.java.browse]
-            [clojure.pprint]
-            [overtone.libs.asset :as asset]
-            [overtone.sc.sample :as samp]
-            [overtone.sc.buffer :as buffer]
-            [overtone.helpers.lib :refer [defrecord-ifn]]
-            [overtone.helpers.file :refer [*authorization-header* file-extension]]))
+(ns overtone.samples.freesound
+  "An API for interacting with the awesome free online sample resource
+  freesound.org"
+  {:author "Sam Aaron, Kevin Neaton"}
+  (:require
+   [clojure.data.json :as json]
+   [clojure.java.browse]
+   [clojure.pprint]
+   [overtone.samples.freesound.search-results :refer :all]
+   [overtone.samples.freesound.url :refer :all]
+   [overtone.sc.node :refer :all]
+   [overtone.config.store :as config]
+   [overtone.helpers.file :refer [*authorization-header* file-extension]]
+   [overtone.helpers.gui :as gui]
+   [overtone.helpers.lib :refer [defrecord-ifn]]
+   [overtone.libs.asset :as asset]
+   [overtone.sc.buffer :as buffer]
+   [overtone.sc.sample :as samp])
+  (:import
+   (javax.swing JFrame JPanel JButton JOptionPane WindowConstants
+                JPasswordField)
+   java.awt.GraphicsEnvironment))
+
+(set! *warn-on-reflection* true)
 
 (def ^:dynamic *client-id* "ea6297be42e9de76d47c")
 (def ^:dynamic *api-key* "32da10a118819877ec041752680588c62684c0b2")
-(def ^:dynamic *access-token* (atom false))
+(def ^:dynamic *access-token* (atom (config/store-get :freesound-token)))
 
 (defonce ^{:private true} __RECORDS__
   (do
@@ -88,33 +97,125 @@
     (let [r (.getInputStream con)]
       r)))
 
-(defn access-token [code]
-  (let [r (:access_token
-           (slurp-json
-            (post-request
-             (freesound-url "/oauth2/access_token/")
-             {:client_id *client-id*
-              :client_secret *api-key*
-              :grant_type "authorization_code"
-              :code code})))]
-    (reset! *access-token* r)))
+(defn handle-token-response [res]
+  (let [{:keys [access_token refresh_token]} (slurp-json res)]
+    (reset! *access-token* access_token)
+    (config/store-set! :freesound-token access_token)
+    (config/store-set! :freesound-refresh-token refresh_token)))
 
-(defn authorization-instructions []
+(defn access-token [code]
+  (handle-token-response
+   (post-request
+    (freesound-url "/oauth2/access_token/")
+    {:client_id *client-id*
+     :client_secret *api-key*
+     :grant_type "authorization_code"
+     :code code})))
+
+(defn refresh-token! []
+  (handle-token-response
+   (post-request
+    (freesound-url "/oauth2/access_token/")
+    {:client_id *client-id*
+     :client_secret *api-key*
+     :grant_type "refresh_token"
+     :refresh_token (config/store-get :freesound-refresh-token)})))
+
+(defn- dialog-box
+  "Opens a window with a password field and a button to input an auth token.
+  Takes a callback accepting the password as a string."
+  [out-fn]
+  (let [button (JButton. "Authorize")
+        password-field (JPasswordField. 10)
+        panel (doto (JPanel.)
+                (.add password-field)
+                (.add button))
+        frame (doto (JFrame. "Freesound Authorization")
+                (.setSize 200 200)
+                (.setContentPane panel)
+                ;; unsure if this leaks memory but DISPOSE_ON_CLOSE and
+                ;; EXIT_ON_CLOSE both risk closing the VM
+                (.setDefaultCloseOperation WindowConstants/HIDE_ON_CLOSE))]
+    (.addActionListener
+     button (gui/action-listener
+             (fn [_event]
+               ;; using .dispose may close the VM
+               (.setVisible frame false)
+               (let [pw (String/valueOf (.getPassword password-field))]
+                 (out-fn pw)))))
+    (.setVisible frame true)
+    (fn [] (.dispose frame))))
+
+(defn authorization-instructions
+  "Prints the url of and opens a browser to the freesound oauth2 page.
+  Listens to (read-line) and opens a Swing dialog box (if not headless).
+  Prompts the user to paste token in either, and then uses whichever
+  token was provided first to generate and cache a freesound access token."
+  []
   (let [url
         (freesound-url "/oauth2/authorize/"
                        {:client_id *client-id* :response_type "code"})]
-    (println "Authorize in browser and paste code in Stdin.")
+    (println "Authorize in browser and paste code in Stdin or dialog box.")
     (println url)
     (clojure.java.browse/browse-url url)
-    (access-token (read-line))))
+    (let [done (promise)
+          auth (volatile! nil)
+          interrupt-me (volatile! nil)
+          close-dialog (volatile! (fn []))
+          write (fn [s]
+                  (locking auth
+                    ;; first writer wins
+                    (when (nil? @auth)
+                      (vreset! auth s)
+                      ;; if entered in dialog box, interrupt (read-line) to finish the future
+                      (some-> ^Thread @interrupt-me .interrupt)
+                      ;; if entered via (read-line), close dialog box
+                      (@close-dialog)
+                      (deliver done true))))
+          ;; open dialog box if allowed
+          _ (when (and (not (GraphicsEnvironment/isHeadless))
+                       (not (= "false" (System/getProperty "overtone.samples.freesound.auth-dialog-box"))))
+              (vreset! close-dialog (dialog-box write)))
+          ;; wait for stdin
+          _ (future
+              (vreset! interrupt-me (Thread/currentThread))
+              (try (let [s (read-line)]
+                     (vreset! interrupt-me nil)
+                     (write s))
+                   (catch InterruptedException _)))]
+      @done
+      (access-token @auth))))
+
+(defn with-authorization-header* [do-request]
+  (binding [*authorization-header*
+            (fn []
+              (when (not @*access-token*)
+                (authorization-instructions))
+              (str "Bearer " @*access-token*))]
+    (try
+      (do-request)
+      (catch clojure.lang.ExceptionInfo e
+        (if (not= 401 (:response-code (ex-data e)))
+          (throw e)
+          (if (config/store-get :freesound-refresh-token)
+            (do (println "Freesound access token has expired, refreshing.")
+                (refresh-token!)
+                (try
+                  (do-request)
+                  (catch clojure.lang.ExceptionInfo e
+                    (if (not= 401 (:response-code (ex-data e)))
+                      (throw e)
+                      (do
+                        (println "Refresh didn't help, asking for a new token.")
+                        (authorization-instructions)
+                        (do-request))))))
+            (do
+              (println "Freesound access token has expired, but no refresh token present. Asking for a new access token.")
+              (authorization-instructions)
+              (do-request))))))))
 
 (defmacro with-authorization-header [b]
-  `(binding [*authorization-header*
-             (fn []
-               (when (not @*access-token*)
-                 (authorization-instructions))
-               (str "Bearer " @*access-token*))]
-     ~b))
+  `(with-authorization-header* #(do ~b)))
 
 ;; ## Sound Info
 (defn- info-url
@@ -156,10 +257,11 @@
     (with-authorization-header (asset/asset-path url name))))
 
 (defn freesound-sample
-  "Download, cache and persist the freesound audio file specified by
-   id. Creates a buffer containing the sample loaded onto the server and
-   returns a playable sample capable of playing the sample when called
-   as a fn."
+  "Download, cache and persist the freesound audio file specified by id.
+  Creates a buffer containing the sample loaded onto the server and returns a
+  playable sample capable of playing the sample when called as a fn.
+
+  Use the `:id` property to get the buffer id, to use directly with `play-buf`."
   [id & args]
   (let [path      (freesound-path id)
         smpl      (apply samp/load-sample path args)
@@ -209,6 +311,27 @@
   [id]
   (let [url (pack-serve-url id)]
     (with-authorization-header (asset/asset-bundle-dir url))))
+
+(defn freesound-sample-pack
+  "Download, cache, and persist all of the sounds in the freesound sample pack
+  specified by id, then loads them into buffers in the SuperCollider server,
+  ready to be played. Returns a map with the keys being the names of the samples
+  as keywords, and the values being playable samples capable of playing the
+  sample when called as a fn.
+
+  Use the `:id` property to get the buffer id, to use directly with `play-buf`.
+  "
+  [id]
+  (into
+   {}
+   (for [sample-file (file-seq (java.io.File. ^String (freesound-pack-dir id)))
+         :let [[_ id user sample-name] (re-find #"/(\d+)__([^/\.]+)__([^\.]+).wav" (str sample-file))]
+         :when sample-name]
+     [(keyword sample-name)
+      (map->FreesoundSample
+       (assoc (samp/load-sample sample-file)
+              :sample-name sample-name
+              :freesound-id (Long/parseLong id)))])))
 
 ;; ## Sound Search
 (defn- search-url

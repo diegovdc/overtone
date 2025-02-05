@@ -1,8 +1,9 @@
-(ns
-    ^{:doc "Utility functions for the generation of docstrings"
-      :author "Sam Aaron"}
-  overtone.helpers.doc
+(ns overtone.helpers.doc
+  "Utility functions for the generation of docstrings"
+  {:author "Sam Aaron"}
   (:require [clojure.string :as str]))
+
+(set! *warn-on-reflection* true)
 
 (def DOC-WIDTH 50)
 
@@ -13,7 +14,7 @@
    (length-of-longest-key {}) ;=> 0"
 
   [m]
-  (or (last (sort (map #(.length %) (keys m))))
+  (or (last (sort (map count (keys m))))
       0))
 
 (defn length-of-longest-string
@@ -41,8 +42,8 @@
   [s ls cur-len max-len indent]
   (if (empty? ls)
     s
-    (let [f-len (.length (first ls))]
-      (if (.endsWith (first ls) "\n\n")
+    (let [f-len (count (first ls))]
+      (if (str/ends-with? (first ls) "\n\n")
         (if (> (+ cur-len f-len) max-len)
           (indented-str-block* (str s "\n" (gen-padding indent) (first ls) (gen-padding indent)) (rest ls) 0 max-len indent)
           (indented-str-block* (str s (first ls) (gen-padding indent)) (rest ls) 0 max-len indent))

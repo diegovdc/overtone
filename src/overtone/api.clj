@@ -1,23 +1,28 @@
 (ns overtone.api
   (:import [java.lang.management ManagementFactory])
-  (:use [overtone.libs boot-msg]
-        [overtone.helpers.ns])
-  (:require clojure.stacktrace
-            [overtone.config store]
-            [overtone version osc speech]
-            [overtone.algo chance scaling trig fn lists]
-            [overtone.sc bindings buffer bus envelope example info
-             ugens defcgen node sample server synth clock
-             foundation-groups dyn-vars trig vbap]
-            [overtone.sc.cgens oscillators demand mix dyn io buf-io env tap
-             line freq beq-suite berlach ;; bhob
-             fx info]
-            [overtone.music rhythm pitch tuning time]
-            [overtone.studio mixer inst util fx wavetable midi midi-player core scope]
-            [overtone.repl ugens examples shell inst debug graphviz]
-            [overtone.libs asset event]
-            [overtone.samples freesound]
-            [overtone.helpers.doc :refer [fs]]))
+  (:use
+   overtone.helpers.ns
+   overtone.libs.boot-msg)
+  (:require
+   clojure.stacktrace
+   [overtone.helpers.doc :refer [fs]]
+   (overtone.helpers rand)
+   (overtone version osc speech)
+   (overtone.algo chance scaling trig fn lists)
+   (overtone.config store)
+   (overtone.libs asset event)
+   (overtone.music rhythm pitch tuning time)
+   (overtone.repl debug examples graphviz
+                  inst shell ugens)
+   (overtone.samples freesound)
+   (overtone.sc bindings buffer bus envelope example info
+                ugens defcgen node sample server synth clock
+                foundation-groups dyn-vars trig vbap)
+   (overtone.sc.cgens oscillators demand mix dyn io buf-io env tap
+                      line freq beq-suite berlach ;; bhob
+                      fx info)
+   (overtone.studio aux-bus mixer inst util fx wavetable midi midi-player core
+                    pattern event)))
 
 
 ;; Currently the default lein setting drastically reduces performance in
@@ -48,67 +53,73 @@
               **********************************************************")))))
 
 (def immigrated-namespaces
-  ['overtone.osc
-   'overtone.algo.chance
-   'overtone.algo.scaling
-   'overtone.algo.trig
+  ['overtone.algo.chance
    'overtone.algo.fn
    'overtone.algo.lists
+   'overtone.algo.scaling
+   'overtone.algo.trig
    'overtone.config.store
+   'overtone.libs.asset
+   'overtone.libs.event
+   'overtone.music.pitch
+   'overtone.music.rhythm
+   'overtone.music.time
+   'overtone.music.tuning
+   'overtone.osc
+   'overtone.repl.debug
+   'overtone.repl.examples
+   'overtone.repl.graphviz
+   'overtone.repl.inst
+   'overtone.repl.shell
+   'overtone.repl.ugens
+   'overtone.samples.freesound
    'overtone.sc.bindings
    'overtone.sc.buffer
    'overtone.sc.bus
+   'overtone.sc.cgens.beq-suite
+   'overtone.sc.cgens.berlach
+   ;; 'overtone.sc.cgens.bhob
+   'overtone.sc.cgens.buf-io
+   'overtone.sc.cgens.demand
+   'overtone.sc.cgens.dyn
+   'overtone.sc.cgens.env
+   'overtone.sc.cgens.freq
+   'overtone.sc.cgens.fx
+   'overtone.sc.cgens.info
+   'overtone.sc.cgens.io
+   'overtone.sc.cgens.line
+   'overtone.sc.cgens.mix
+   'overtone.sc.cgens.oscillators
+   'overtone.sc.cgens.tap
+   'overtone.sc.clock
+   'overtone.sc.defcgen
+   'overtone.sc.dyn-vars
    'overtone.sc.envelope
    'overtone.sc.example
+   'overtone.sc.foundation-groups
    'overtone.sc.info
    'overtone.sc.node
    'overtone.sc.sample
    'overtone.sc.server
    'overtone.sc.synth
-   'overtone.sc.ugens
-   'overtone.sc.defcgen
-   'overtone.sc.foundation-groups
-   'overtone.sc.dyn-vars
    'overtone.sc.trig
+   'overtone.sc.ugens
    'overtone.sc.vbap
-   'overtone.sc.cgens.oscillators
-   'overtone.sc.cgens.demand
-   'overtone.sc.cgens.mix
-   'overtone.sc.cgens.dyn
-   'overtone.sc.cgens.io
-   'overtone.sc.cgens.buf-io
-   'overtone.sc.cgens.env
-   'overtone.sc.cgens.tap
-   'overtone.sc.cgens.line
-   'overtone.sc.cgens.freq
-   'overtone.sc.cgens.beq-suite
-   'overtone.sc.cgens.berlach
-   ;; 'overtone.sc.cgens.bhob
-   'overtone.sc.cgens.fx
-   'overtone.sc.cgens.info
-   'overtone.sc.clock
-   'overtone.studio.mixer
-   'overtone.studio.inst
+   'overtone.speech
+   'overtone.studio.aux-bus
+   'overtone.studio.core
    'overtone.studio.fx
-   'overtone.studio.wavetable
+   'overtone.studio.inst
    'overtone.studio.midi
    'overtone.studio.midi-player
-   'overtone.studio.core
-   'overtone.music.rhythm
-   'overtone.music.pitch
-   'overtone.music.tuning
-   'overtone.music.time
-   'overtone.speech
-   'overtone.repl.ugens
-   'overtone.repl.examples
-   'overtone.repl.shell
-   'overtone.repl.inst
-   'overtone.repl.debug
-   'overtone.repl.graphviz
-   'overtone.libs.asset
-   'overtone.libs.event
-   'overtone.samples.freesound
-   'overtone.version])
+   'overtone.studio.mixer
+   'overtone.studio.wavetable
+   'overtone.version
+   'overtone.studio.pattern
+   'overtone.studio.event
+   'overtone.studio.transport
+   'overtone.helpers.rand
+   ])
 
 (defn immigrate-overtone-api []
   (apply immigrate immigrated-namespaces))

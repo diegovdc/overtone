@@ -2,9 +2,7 @@
   (:use [overtone.helpers lib]))
 
 (def unnormalized-binaryopugen-docspecs
-
-  {
-   "+"           {:summary "Signal summing"
+  {"+"           {:summary "Signal summing"
                   :doc "Merges two signals by adding them together."}
 
    "-"           {:summary "Signal subtraction"
@@ -61,18 +59,17 @@
                   :doc "Outputs the largest value of the two inputs a
                         and b"}
 
-   "and"         {:summary "Signal comparison - and"
-                  :doc "Compares the two input signals a and b. If both
-                        are greater than 0 outputs 1, otherwise outputs 0"}
+   "bit-and"     {:summary "Bitwise AND"
+                  :doc "Performs a bitwise AND on the two input signals a and b.
+                       Corresponds to bitAnd and the & operator in sclang."}
 
-   "or"          {:summary "Signal comparison - or"
-                  :doc "Compares the two input signals a and b. If
-                        either is greater than 0 outputs 1, otherwise
-                        outputs 0"}
+   "bit-or"      {:summary "Bitwise OR"
+                  :doc "Performs a bitwise OR on the two input signals a and b.
+                       Corresponds to bitOr and the | operator in sclang."}
 
-   "xor"         {:summary "Signal comparison - xor"
-                  :doc "Compares the two input signals a and b. If only
-                        one is greater than 0 outputs 1, otherwise outputs 0"}
+   "bit-xor"     {:summary "Bitwise XOR"
+                  :doc "Performs a bitwise XOR on the two input signals a and b.
+                       Corresponds to bitXor in sclang."}
 
    "round"       {:summary "Rounding - nearest multiple"
                   :doc "Rounds a to the nearest (up or down) multiple of
@@ -111,6 +108,7 @@
 
                         This should not be used for simulating a doppler
                         shift because it is discontinuous. Use hypot."}
+
    "pow"         {:summary "exponentiation"
                   :doc "Returns a to the power of b
 
@@ -186,8 +184,7 @@
                   :doc "folds input wave a to +/- b"}
 
    "wrap2"       {:summary "Bilateral wrapping"
-                  :doc "wraps input wave to +/- b"}
-   })
+                  :doc "wraps input wave to +/- b"}})
 
 (def binaryopugen-docspecs
   (into {} (map

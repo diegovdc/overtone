@@ -1,9 +1,13 @@
-(ns
-  ^{:doc "This is primarily a specification for SuperCollider synthesizer
-          definition files.  Additionally there are functions for reading and
-          writing to and from byte arrays, files, and URLs.  "
-     :author "Jeff Rose"}
-  overtone.sc.machinery.synthdef
+(ns overtone.sc.machinery.synthdef
+  "The SuperCollider Synth Definition File Format (de)serialization
+
+  Used both to read/write synthdefs from files, and to send synthdefs to the
+  server over the wire via OSC messages. Additionally there are functions for
+  reading and writing to and from byte arrays, files, and URLs.
+
+  See https://doc.sccode.org/Reference/Synth-Definition-File-Format.html
+  "
+  {:author "Jeff Rose"}
   (:import [java.net URL])
   (:use [overtone.byte-spec]
         [overtone.helpers lib]
@@ -19,8 +23,8 @@
 ;;   pstring - the name of the parameter
 ;;   int16 - its index in the parameter array
 (defspec param-spec
-         :name  :string
-         :index :int16)
+  :name  :string
+  :index :int16)
 
 ;; input-spec is :
 ;;   int16 - index of unit generator or -1 for a constant
@@ -31,14 +35,14 @@
 ;;   }
 ;; end
 (defspec input-spec
-                                 :src   :int16
-                                 :index :int16)
+  :src   :int16
+  :index :int16)
 
 ;; an output-spec is :
 ;;   int8 - calculation rate
 ;; end
 (defspec output-spec
-                                 :rate :int8)
+  :rate :int8)
 
 ;; ugen-spec is :
 ;;   pstring - the name of the SC unit generator class
@@ -53,20 +57,20 @@
 ;;    - (e.g. UnaryOpUGen and BinaryOpUGen use it to indicate which operator to perform.)
 ;;    - If not used it should be set to zero.
 (defspec ugen-spec
-                                 :name      :string
-                                 :rate      :int8
-                                 :n-inputs  :int16
-                                 :n-outputs :int16
-         :special   :int16 0
-                                 :inputs    [input-spec]
-         :outputs   [output-spec])
+  :name      :string
+  :rate      :int8
+  :n-inputs  :int16
+  :n-outputs :int16
+  :special   :int16 0
+  :inputs    [input-spec]
+  :outputs   [output-spec])
 
 ;; variants are a mechanism to store a number of presets for a synthdef
 ;;   pstring - name of the variant
 ;;   [float32] - an array of preset values, one for each synthdef parameter
 (defspec variant-spec
-         :name   :string
-         :params [:float32])
+  :name   :string
+  :params [:float32])
 
 ;; synth-definition (sdef):
 ;;   pstring - the name of the synth definition
@@ -87,17 +91,17 @@
 ;;  * parameters are named input floats that can be dynamically controlled
 ;;    - (/s.new, /n.set, /n.setn, /n.fill, /n.map)
 (defspec synth-spec
-         :name         :string
-         :n-constants  :int16
-         :constants    [:float32]
-         :n-params     :int16
-         :params       [:float32]
-         :n-pnames     :int16
-         :pnames       [param-spec]
-         :n-ugens      :int16
-         :ugens        [ugen-spec]
-         :n-variants   :int16 0
-         :variants     [variant-spec])
+  :name         :string
+  :n-constants  :int16
+  :constants    [:float32]
+  :n-params     :int16
+  :params       [:float32]
+  :n-pnames     :int16
+  :pnames       [param-spec]
+  :n-ugens      :int16
+  :ugens        [ugen-spec]
+  :n-variants   :int16 0
+  :variants     [variant-spec])
 
 ;; a synth-definition-file is :
 ;;   int32 - four byte file type id containing the ASCII characters: "SCgf"
@@ -110,10 +114,10 @@
 (def SCGF-VERSION 1)
 
 (defspec synthdef-file-spec
-         :id       :int32 SCGF-MAGIC
-         :version  :int32 SCGF-VERSION
-         :n-synths :int16 1
-         :synths   [synth-spec])
+  :id       :int32 SCGF-MAGIC
+  :version  :int32 SCGF-VERSION
+  :n-synths :int16 1
+  :synths   [synth-spec])
 
 ;;;;;;;;;;;;;;;;;;;;; Synthdef V2 spec
 ;; param-name is :
@@ -244,8 +248,6 @@
                 synth-name
                 ".scsyndef")))
 
-;; TODO: byte array shouldn't really be the default here, but I don't
-;; know how to test for one correctly... (byte-array? data) please?
 (defn- synthdef-read-using-spec
   "Returns a constructed path to a named synthdef on the current platform"
   [synthdef-spec data]
@@ -413,20 +415,20 @@
   [pnames ugens ug]
   (assoc ug :inputs
          (map
-           (fn [{:keys [src index] :as input}]
-             (if src
-               (let [u-in (nth ugens src)]
-                 (if (= "Control" (:name u-in))
-                   (nth pnames index)
-                   (:sname (nth ugens src))))
-               input))
-           (:inputs ug))))
+          (fn [{:keys [src index] :as input}]
+            (if src
+              (let [u-in (nth ugens src)]
+                (if (= "Control" (:name u-in))
+                  (nth pnames index)
+                  (:sname (nth ugens src))))
+              input))
+          (:inputs ug))))
 
-; In order to do this correctly is a big project because you also have to
-; reverse the process of the various ugen modes.  For example, you need
-; to recognize the ugens that have array arguments which will be
-; appended, and then you need to gather up the inputs and place them into
-; an array at the correct argument location.
+;; In order to do this correctly is a big project because you also have to
+;; reverse the process of the various ugen modes.  For example, you need
+;; to recognize the ugens that have array arguments which will be
+;; appended, and then you need to gather up the inputs and place them into
+;; an array at the correct argument location.
 (defn synthdef-decompile
   "Decompile a parsed SuperCollider synth definition back into clojure
   code that could be used to generate an identical synth.
@@ -445,10 +447,10 @@
         ugens (map (partial reverse-ugen-inputs pnames ugens) ugens)
         ugens (filter #(not= "Control" (:name %)) ugens)
         ugen-forms (map vector
-                     (map :sname ugens)
-                     (map ugen-form ugens))]
-      (print (format "(defsynth %s %s\n  (let [" sname param-vec))
-      (println (ffirst ugen-forms) (second (first ugen-forms)))
-      (doseq [[uname uform] (drop 1 ugen-forms)]
-        (println "       " uname uform))
-      (println (str "       ]\n   " (first (last ugen-forms)) ")"))))
+                        (map :sname ugens)
+                        (map ugen-form ugens))]
+    (print (format "(defsynth %s %s\n  (let [" sname param-vec))
+    (println (ffirst ugen-forms) (second (first ugen-forms)))
+    (doseq [[uname uform] (drop 1 ugen-forms)]
+      (println "       " uname uform))
+    (println (str "       ]\n   " (first (last ugen-forms)) ")"))))

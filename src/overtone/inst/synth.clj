@@ -182,11 +182,11 @@
     audio))
 
 (definst buzz
-  [pitch 40 cutoff 300 dur 200]
-  (let [lpf-lev (* (+ 1 (lf-noise1:kr 10)) 400)
+  [pitch 40 cutoff 400 dur 200]
+  (let [lpf-lev (* (+ 1 (lf-noise1:kr 10)) cutoff)
         a       (lpf (saw (midicps pitch)) lpf-lev)
         b       (sin-osc (midicps (- pitch 12)))
-        env     (env-gen 1 1 0 1 2 (perc 0.01 (/ dur 1000)))]
+        env     (env-gen (perc 0.01 (/ dur 1000)) :action FREE)]
     (* env (+ a b))))
 
 (definst bass
@@ -195,10 +195,13 @@
         src  (saw [freq (* 0.98 freq) (* 2.015 freq)])
         src  (clip2 (* 1.3 src) 0.8)
         sub  (sin-osc (/ freq 2))
-        filt (resonz (rlpf src (* 4.4 freq) 0.09) (* 2.0 freq) 2.9)]
-    (* env amp (fold:ar (distort (* 1.3 (+ filt sub))) 0.08))))
+        filt (resonz (rlpf src (* 4.4 freq) 0.09) (* 2.0 freq) 2.9)
+        fld  (fold:ar (distort (* 1.3 (+ filt sub))) 0.08)]
+    ;; Three distinct audio channels created in `saw` above need to be
+    ;; mixed down to one for output
+    (* env amp (mix fld))))
 
-(definst daf-bass [freq 440 gate 1 amp 1 out-bus 0]
+(definst daf-bass [freq 440 gate 1 amp 1]
   (let [harm [1 1.01 2 2.02 3.5 4.01 5.501]
         harm (concat harm (map #(* 2 %) harm))
         snd  (* 2 (distort (sum (sin-osc (* freq harm)))))
@@ -206,8 +209,7 @@
         env  (env-gen (adsr 0.001 0.2 0.9 0.25) gate amp :action FREE)]
     (* snd env)))
 
-(definst grunge-bass
-  [note 48 amp 0.5 dur 0.1 a 0.01 d 0.01 s 0.4 r 0.01]
+(definst grunge-bass [note 48 amp 1 dur 0.1 a 0.01 d 0.01 s 0.4 r 0.01]
   (let [freq    (midicps note)
         env     (env-gen (adsr a d s r) (line:kr 1 0 (+ a d dur r 0.1))
                          :action FREE)
@@ -218,7 +220,7 @@
         meat    (ring4 filt sub)
         sliced  (rlpf meat (* 2 freq) 0.1)
         bounced (free-verb sliced 0.8 0.9 0.2)]
-    (* env bounced)))
+    (* amp env (mix bounced))))
 
 (definst vintage-bass
   [note 40 velocity 80 t 0.6 amp 1 gate 1]
@@ -310,8 +312,8 @@
         osc-b (* amp (sin-osc (* (mouse-y 3000 0) osc-a)))]
     osc-a))
 
-; From the SC2 examples included with SC
-; Don't think it's quite there, but almost...
+;; From the SC2 examples included with SC
+;; Don't think it's quite there, but almost...
 (definst harmonic-swimming
   [amp 0.5]
   (let [freq     100
@@ -323,9 +325,9 @@
               (if (= partials i)
                 z
                 (let [f (clip:kr (mul-add
-                                   (lf-noise1:kr [(+ 6 (rand 4))
-                                                  (+ 6 (rand 4))])
-                                   0.2 offset))
+                                  (lf-noise1:kr [(+ 6 (rand 4))
+                                                 (+ 6 (rand 4))])
+                                  0.2 offset))
                       src  (f-sin-osc (* freq (inc i)))
                       newz (mul-add src f z)]
                   (recur newz (inc i)))))]
@@ -349,7 +351,7 @@
         zout (comb-n src :decay-time 4)]
     zout))
 
-; // Originally from the STK instrument models...
+;; // Originally from the STK instrument models...
 #_(definst bowed
   [note 60 velocity 80 gate 1 amp 1
    bow-offset 0 bow-slope 0.5 bow-position 0.75 vib-freq 6.127 vib-gain 0.2]

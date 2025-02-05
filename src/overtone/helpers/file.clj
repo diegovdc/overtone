@@ -1,19 +1,21 @@
-(ns
-    ^{:doc    "Useful file manipulation fns"
-      :author "Sam Aaron"}
-    overtone.helpers.file
-  (:import [java.net URL]
-           [java.io StringWriter]
-           ;; Requires Java7
-           [java.nio.file Files Paths
-            SimpleFileVisitor StandardCopyOption
-            FileVisitResult LinkOption CopyOption]
-           [java.nio.file.attribute FileAttribute])
-  (:use [overtone.helpers.string]
-        [clojure.java.io]
-        [overtone.helpers.system :only [windows-os?]])
-  (:require [org.satta.glob :as satta-glob]
-            [clojure.string :as str]))
+(ns overtone.helpers.file
+  "Useful file manipulation fns"
+  {:author "Sam Aaron"}
+  (:require
+   [clojure.java.io :refer :all]
+   [clojure.string :as str]
+   [org.satta.glob :as satta-glob]
+   [overtone.helpers.string :refer :all]
+   [overtone.helpers.system :refer [get-os]])
+  (:import
+   (java.io StringWriter)
+   (java.net URL)
+   (java.nio.file Files Paths
+                  SimpleFileVisitor StandardCopyOption
+                  FileVisitResult LinkOption CopyOption)
+   (java.nio.file.attribute FileAttribute)))
+
+(set! *warn-on-reflection* true)
 
 (def ^{:dynamic true} *verbose-overtone-file-helpers* false)
 (def ^{:dynamic true} *authorization-header* false)
@@ -214,19 +216,23 @@
                            slices)]
       (print-if-verbose (str (:perc slice) "% (" (pretty-file-size num-copied-bytes)  ") completed")))))
 
-(defn- remote-file-copy [in-stream out-stream file-size]
+(defn- remote-file-copy
   "Similar to  the corresponding implementation of #'do-copy in 'clojure.java.io
   but also tracks how many bytes have been downloaded and prints percentage
   statements when *verbose-overtone-file-helpers* is bound to true."
+  [in-stream out-stream file-size]
   (let [buf-size 2048
         buffer   (make-array Byte/TYPE buf-size)
         slices   (percentage-slices file-size 100)]
-    (loop [bytes-copied 0]
+    (loop [bytes-copied 0
+           iteration 0]
       (let [size (.read ^java.io.BufferedInputStream in-stream buffer)]
-        (print-file-copy-status bytes-copied size file-size slices)
+        (when (= 0 (mod iteration 10))
+          (print-file-copy-status bytes-copied size file-size slices))
         (when (pos? size)
           (do (.write ^java.io.BufferedOutputStream out-stream buffer 0 size)
-              (recur (+ size bytes-copied))))))
+              (recur (+ size bytes-copied)
+                     (inc iteration))))))
     (print-if-verbose "--> Download successful")))
 
 (defn- download-file-without-timeout
@@ -357,6 +363,13 @@
         f (file path)]
     (and (.exists f) (.isFile f))))
 
+(defn file-can-execute?
+  "Returns true if a file specified by path exists"
+  [path]
+  (let [path (resolve-tilde-path path)
+        f (file path)]
+    (and (.exists f) (.isFile f) (.canExecute f))))
+
 (defn dir-exists?
   "Returns true if a directory specified by path exists"
   [path]
@@ -398,7 +411,7 @@
     (visitFile [^java.nio.file.Path file attrs]
       (let [^java.nio.file.Path target (.resolve to (.relativize from file))]
         (Files/copy file target
-                    ^java.nio.file.CopyOption (into-array CopyOption [StandardCopyOption/REPLACE_EXISTING])))
+                    ^"[Ljava.nio.file.CopyOption;" (into-array CopyOption [StandardCopyOption/REPLACE_EXISTING])))
       FileVisitResult/CONTINUE)))
 
 (defn copy-dir!
@@ -424,19 +437,36 @@
                              " attempts. URL attempted to download: "
                              url ))))
 
-   (let [path (resolve-tilde-path path)]
+   (let [wait-t (long wait-t)
+         path (resolve-tilde-path path)]
      (try
        (download-file-with-timeout url path timeout)
        (catch java.io.FileNotFoundException e
          (rm-rf! path)
          (Thread/sleep wait-t)
-         (print-if-verbose (str "Download failed. File not found: " url ))
-         (throw (Exception. (str "Aborting! Download failed. File not found: " url ))))
+         (print-if-verbose "  --> Download failed. File not found:" url)
+         (throw (Exception. (str "  --> Aborting! Download failed. File not found: " url ))))
        (catch Exception e
          (rm-rf! path)
-         (Thread/sleep wait-t)
-         (print-if-verbose (str "Download timed out. Retry " (inc attempts-made) ": " url ))
-         (download-file* url path timeout n-retries wait-t (inc attempts-made)))))))
+         (let [[_ code] (re-find #"HTTP response code: (\d+)" (.getMessage e))]
+           (cond
+             (= "429" code)
+             ;; 429 Too Many Requests
+             (let [wait-t (* 2 wait-t)]
+               (print-if-verbose (format "  --> Too Many Requests, increasing wait time to %.1fs" (double wait-t)))
+               (Thread/sleep wait-t)
+               (download-file* url path timeout n-retries wait-t (inc attempts-made)))
+
+             (= "401" code)
+             (throw (ex-info (.getMessage e)
+                             {:url url
+                              :response-code 401}
+                             e))
+             :else
+             (do
+               (print-if-verbose (str "  --> Download timed out. Retry " (inc attempts-made) (when code (str " (" code ")"))))
+               (Thread/sleep wait-t)
+               (download-file* url path timeout n-retries wait-t (inc attempts-made))))))))))
 
 (defn- print-download-file
   [url]
@@ -469,17 +499,19 @@
    (print-download-file url)
    (download-file* url path timeout n-retries wait-t)))
 
+(defn find-executable
+  "Look for a file on the system's PATH."
+  [program-name]
+  (some
+   (fn [dir]
+     (let [f (java.io.File. ^String dir ^String program-name)]
+       (when (file-can-execute? f)
+         f)))
+   (.split (System/getenv "PATH") java.io.File/pathSeparator)))
 
-(defn ensure-native
-  "To use Overtone's native resources like internal native synth and
-   ableton-link, there needs to be a native directory in the project
-   root. This can be done by setting `:native-paths \"native\"` in
-   leiningen. If this configuration is missing, this function will
-   attempt to copy over the native dir from the target directory if
-   present."
-  []
-  (let [native-dir        (str (System/getProperty "user.dir") "/native")
-        target-native-dir (str (System/getProperty "user.dir") "/target/native")]
-    (when (and (not (.exists (file native-dir)))
-               (.exists (file target-native-dir)))
-      (copy-dir! target-native-dir native-dir))))
+(defn find-well-known-sc-path
+  "Find the path for SuperCollider by checking common locations."
+  [default-paths]
+  (let [os    (get-os)
+        paths (get default-paths os)]
+    (first (filter #(file-can-execute? %) paths))))

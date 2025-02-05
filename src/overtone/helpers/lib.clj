@@ -5,11 +5,13 @@
   (:import [java.util ArrayList Collections]
            [java.util.concurrent TimeUnit TimeoutException]
            [java.io File])
+  (:require [clojure.string :as str])
   (:use [clojure.stacktrace]
         [clojure.pprint]
         [overtone.helpers doc]
         [overtone.helpers.system :only [windows-os?]]))
 
+(set! *warn-on-reflection* true)
 
 (defn to-str
   "If val is a keyword, return its name sans :, otherwise return val"
@@ -139,13 +141,18 @@
      clojure.lang.IFn
      ~@(map (fn [n]
               (let [args (for [i (range n)] (symbol (str "arg" i)))]
-                (if (empty? args)
+                (cond
+                  (empty? args)
                   `(~'invoke [this#]
-                             (~invoke_fn this#))
+                    (~invoke_fn this#))
+                  (= 21 n)
                   `(~'invoke [this# ~@args]
-                             (~invoke_fn this# ~@args))))) (range 21))
+                    (apply ~invoke_fn this# ~@args))
+                  :else
+                  `(~'invoke [this# ~@args]
+                    (~invoke_fn this# ~@args))))) (range 22))
      (~'applyTo [this# args#]
-       (apply ~invoke_fn this# args#))))
+      (apply ~invoke_fn this# args#))))
 
 (defn- syms-to-keywords [coll]
   (map #(if (symbol? %)
@@ -204,14 +211,14 @@
         arg-string      (str arg-string "[" arg-pairs-str "]")
         indented-doc    (indented-str-block docstring 55 2)
         full-docstring  (str arg-string "\n\n  " indented-doc)]
-    `(intern *ns* (with-meta '~fn-name
-                    {:doc ~full-docstring
-                     :type ::unk
-                     :arglists '(~arg-names-symbs)})
-             (fn [& args#]
-               (let [{:keys [~@arg-names]}
-                     (arg-mapper args# ~arg-keys ~default-map)]
-                 ~@body)))))
+    `(def ~(with-meta fn-name
+                      {:doc full-docstring
+                       :type ::unk
+                       :arglists (list 'quote (list arg-names-symbs))})
+       (fn [& args#]
+         (let [{:keys [~@arg-names]}
+               (arg-mapper args# ~arg-keys ~default-map)]
+           ~@body)))))
 
 (defn invert-map
   "Takes a map m and returns a new map that's keys are the m's vals and
@@ -265,16 +272,18 @@
    occurs. You may optionally pass a message explaining what you're
    currently doing whilst defef!ing which will be used to construct the
    TimeoutException."
-  ([ref] (deref! ref DEFAULT-PROMISE-TIMEOUT ""))
-  ([ref timeout-or-msg] (if (string? timeout-or-msg)
-                          (deref! ref DEFAULT-PROMISE-TIMEOUT timeout-or-msg)
-                          (deref! ref timeout-or-msg "")))
+  ([ref]
+   (deref! ref DEFAULT-PROMISE-TIMEOUT ""))
+  ([ref timeout-or-msg]
+   (if (string? timeout-or-msg)
+     (deref! ref DEFAULT-PROMISE-TIMEOUT timeout-or-msg)
+     (deref! ref timeout-or-msg "")))
   ([ref timeout msg]
-     (let [timeout-indicator (gensym "deref-timeout")
-           res               (deref ref timeout timeout-indicator)]
-       (if (= timeout-indicator res)
-         (throw (TimeoutException. (str "deref! timeout error. Dereference took longer than " timeout " ms" (when-not (empty? msg) (str " whilst " msg)))))
-         res))))
+   (let [timeout-indicator (gensym "deref-timeout")
+         res               (deref ref timeout timeout-indicator)]
+     (if (= timeout-indicator res)
+       (throw (TimeoutException. (str "deref! timeout error. Dereference took longer than " timeout " ms" (when-not (empty? msg) (str " whilst " msg)))))
+       res))))
 
 (defn stringify-map-vals
   "converts a map by running all its vals through str
@@ -325,7 +334,7 @@
    SuperCollider names to Overtone names. Most likely needs improvement.
 
   (overtone-ugen-name \"SinOsc\") ;=> \"sin-osc\""
-  [n]
+  [^String n]
   (when-not (string? n)
     (throw (IllegalArgumentException. (str "Cannot convert non-string obj " (with-out-str (pr n)) " to an overtone ugen name"))))
 
@@ -362,7 +371,7 @@
     (let [p-files   (map str (concat
                               (env-files "PROGRAMFILES")
                               (env-files "PROGRAMFILES(X86)")))
-          sc-files  (filter #(.contains % "SuperCollider") p-files)
+          sc-files  (filter #(str/includes? % "SuperCollider") p-files)
           recent-sc (last (sort (seq sc-files)))]
       recent-sc)))
 

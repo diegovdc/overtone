@@ -1,11 +1,14 @@
-(ns
-  ^{:doc "A simple event system that processes fired events in a thread pool."
-     :author "Jeff Rose, Sam Aaron"}
-  overtone.libs.event
-  (:import [java.util.concurrent LinkedBlockingQueue])
-  (:use [overtone.helpers.ref :only [swap-returning-prev!]])
-  (:require [overtone.config.log :as log]
-            [overtone.libs.handlers :as handlers]))
+(ns overtone.libs.event
+  "A simple event system that processes fired events in a thread pool."
+  {:author "Jeff Rose, Sam Aaron"}
+  (:require
+   [overtone.config.log :as log]
+   [overtone.libs.handlers :as handlers]
+   [overtone.helpers.ref :refer [swap-returning-prev!]])
+  (:import
+   (java.util.concurrent LinkedBlockingQueue)))
+
+(set! *warn-on-reflection* true)
 
 (defonce ^:private handler-pool (handlers/mk-handler-pool "Overtone Event Handlers"))
 (defonce ^:private event-debug* (atom false))
@@ -33,10 +36,9 @@
       (reset! last-val* current)) ))
 
 (defn- worker
-  [queue update-fn current-val* last-val*]
+  [^LinkedBlockingQueue queue update-fn current-val* last-val*]
   (while (not= (.take queue) :die)
     (worker-core update-fn current-val* last-val*))
-
   (log-event "Killing Lossy worker"))
 
 (defn- mk-worker
@@ -62,7 +64,7 @@
   (let [current-val* (atom nil)
         last-val*    (atom (gensym))
         queue        (LinkedBlockingQueue.)
-        worker       (Thread. (mk-worker queue update-fn current-val* last-val*))]
+        worker       (Thread. ^Runnable (mk-worker queue update-fn current-val* last-val*))]
     (.start worker)
     (LossyWorker. queue worker current-val*)))
 
@@ -75,20 +77,19 @@
   blocked."
   [lossy-worker new-val]
   (reset! (:current-val lossy-worker) new-val)
-  (.put (:queue lossy-worker) :job))
+  (.put ^LinkedBlockingQueue (:queue lossy-worker) :job))
 
 (defn on-event
-  "Asynchronously runs handler whenever events of event-type are
-  fired. This asynchronous behaviour can be overridden if required - see
-  sync-event for more information. Events may be triggered with the fns
-  event and sync-event.
+  "Asynchronously runs handler whenever events of event-type are fired. This
+  asynchronous behaviour can be overridden if required - see sync-event for more
+  information. Events may be triggered with the fns event and sync-event.
 
-  Takes an event-type (name of the event), a handler fn and a key (to
-  refer back to this handler in the future). The handler must accept a
-  single event argument, which is a map containing the :event-type
-  property and any other properties specified when it was fired.
+  Takes an event-type (name of the event), a handler fn and a key (to refer back
+  to this handler in the future). The handler must accept a single event
+  argument, which is a map containing the :event-type property and any other
+  properties specified when it was fired.
 
-  (on-event \"/tr\" handler ::status-check )
+  (on-event \"/tr\" handler ::status-check)
   (on-event :midi-note-down (fn [event]
                               (funky-bass (:note event)))
                             ::midi-note-down-hdlr)
@@ -145,7 +146,7 @@
                                               (with-out-str (.printStackTrace e)))))))
         [old _] (swap-returning-prev! lossy-workers* assoc key worker)]
     (when-let [old-worker (get old key)]
-      (.put (:queue old-worker) :die))
+      (.put ^LinkedBlockingQueue (:queue old-worker) :die))
     (on-sync-event event-type
                    (fn [msg]
                      (lossy-send worker msg))
@@ -184,7 +185,7 @@
   [key]
   (let [[old new] (swap-returning-prev! lossy-workers* dissoc key)]
     (when-let [old-worker (get old key)]
-      (.put (:queue old-worker) :die)))
+      (.put ^LinkedBlockingQueue (:queue old-worker) :die)))
   (log-event "Removing event handler associated with key: " key)
   (handlers/remove-handler! handler-pool key))
 
@@ -193,7 +194,7 @@
   []
   (let [[old new] (swap-returning-prev! lossy-workers* (fn [_] {}))]
     (doseq [old-worker (vals old)]
-      (.put (:queue old-worker) :die)))
+      (.put ^LinkedBlockingQueue (:queue old-worker) :die)))
   (log-event "Removing all event handlers!")
   (handlers/remove-all-handlers! handler-pool))
 
@@ -218,7 +219,7 @@
     (let [event-info (if (and (= 1 (count args))
                               (map? (first args)))
                        (first args)
-                       (apply hash-map args))]
+                       (apply hash-map :event-type event-type args))]
       (handlers/event handler-pool event-type event-info))))
 
 (defn sync-event
@@ -238,7 +239,7 @@
                               (map? (first args)))
                        (first args)
                        (apply hash-map args))]
-      (apply handlers/sync-event handler-pool event-type event-info))))
+      (handlers/sync-event handler-pool event-type event-info))))
 
 (defn event-debug-on
   "Prints out all incoming events to stdout. May slow things down."
@@ -291,3 +292,6 @@
   "Return a set of all the keys of most recently seen events."
   []
   (into #{} (keys @monitor*)))
+
+(defn registered-handlers []
+  (keys @(:handlers handler-pool)))

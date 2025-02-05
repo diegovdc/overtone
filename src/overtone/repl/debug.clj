@@ -1,10 +1,15 @@
 (ns overtone.repl.debug
-  (:use [clojure.pprint]
-        [overtone.sc.machinery.ugen.defaults]
-        [overtone.sc.machinery.ugen.special-ops]
-        [overtone.sc.machinery.ugen.specs]
-        [overtone.sc.machinery.synthdef]
-        [overtone.helpers seq lib]))
+  (:use
+   clojure.pprint
+   overtone.sc.machinery.ugen.defaults
+   overtone.sc.machinery.ugen.special-ops
+   overtone.sc.machinery.ugen.specs
+   overtone.sc.machinery.synthdef
+   overtone.helpers.seq
+   overtone.helpers.lib
+   overtone.studio.inst))
+
+(set! *warn-on-reflection* true)
 
 (defn- control-ugen-name?
   [ug-n]
@@ -117,7 +122,7 @@
         (if (and (= c-name (overtone-ugen-name (:name ug)) )
                  (= rate (REVERSE-RATES (:rate ug))))
           result
-          (recur (+ result (:n-outputs ug)) (rest ugs)))))))
+          (recur (+ result (long (:n-outputs ug))) (rest ugs)))))))
 
 (defn- expand-control-ug
   [ug c-idx sdef]

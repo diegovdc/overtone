@@ -1,16 +1,16 @@
 (ns overtone.sc.node
-  (:use [overtone.helpers lib]
-        [overtone.helpers.seq :only [zipper-seq]]
-        [overtone.libs event deps counters]
-        [overtone.sc server defaults dyn-vars]
-        [overtone.sc.machinery allocator]
-        [overtone.sc.machinery.server comms]
-        [overtone.sc.util :only [id-mapper]]
-        [overtone.sc.defaults :only [foundation-groups* INTERNAL-POOL]])
-  (:require [clojure.pprint]
-            [clojure.zip :as zip]
-            [overtone.config.log :as log]
-            [overtone.sc.protocols :as protocols]))
+  (:require
+   [clojure.pprint]
+   [clojure.zip :as zip]
+   [overtone.config.log :as log]
+   [overtone.helpers.lib :refer :all]
+   [overtone.helpers.seq :refer :all]
+   [overtone.libs.counters :refer :all]
+   [overtone.libs.event :refer :all]
+   [overtone.sc.defaults :refer :all]
+   [overtone.sc.dyn-vars :refer :all]
+   [overtone.sc.protocols :as protocols]
+   [overtone.sc.server :refer :all]))
 
 ;; The root group is implicitly allocated
 (defonce _root-group_ (next-id :node))
@@ -65,7 +65,7 @@
       (group-free [group]
         "Destroys this group and any containing synths or subgroups."))))
 
-(extend-type java.lang.Long to-sc-id*    (to-sc-id [v] v))
+(extend-type java.lang.Long to-sc-id* (to-sc-id [v] v))
 (extend-type java.lang.Integer to-sc-id* (to-sc-id [v] v))
 (extend-type java.lang.Float to-sc-id* (to-sc-id [v] v))
 
@@ -425,37 +425,37 @@
   (group \"bar\" :head my-g) ;=> Creates a named group at the head of
                                group my-g"
   ([]
-     (group :tail (:default-group @foundation-groups*)))
+   (group :tail (:default-group @foundation-groups*)))
 
   ([name-or-position]
-     (let [id (next-id :node)]
-       (if (string? name-or-position)
-         (group name-or-position id :tail (:default-group @foundation-groups*))
-         (group (str "Group-" id) id name-or-position (:default-group @foundation-groups*)))))
+   (let [id (next-id :node)]
+     (if (string? name-or-position)
+       (group name-or-position id :tail (:default-group @foundation-groups*))
+       (group (str "Group-" id) id name-or-position (:default-group @foundation-groups*)))))
 
   ([name-or-position position-or-target]
-     (let [id (next-id :node)]
-       (if (string? name-or-position)
-         (group name-or-position id position-or-target (:default-group @foundation-groups*))
-         (group (str "Group-" id) id name-or-position position-or-target))))
+   (let [id (next-id :node)]
+     (if (string? name-or-position)
+       (group name-or-position id position-or-target (:default-group @foundation-groups*))
+       (group (str "Group-" id) id name-or-position position-or-target))))
 
   ([name position target]
-     (group name (next-id :node) position target))
+   (group name (next-id :node) position target))
 
   ([name id position target]
-     (ensure-connected!)
-     (ensure-node-active! target "using node as a target for a group")
-     (when-not target
-       (throw (IllegalArgumentException. (str "The target for this group must exist."))))
-     (let [pos    (if (keyword? position) (get NODE-POSITION position) position)
-           target (to-sc-id target)
-           pos    (or pos 1)
-           create-command (if par-group-switch "/p_new" "/g_new")
-           name (if par-group-switch (str "Par-" name) name)
-           snode  (SynthGroup. name id target position (atom :loading) (promise))]
-       (swap! active-synth-nodes* assoc id snode)
-       (snd create-command id pos target)
-       snode)))
+   (ensure-connected!)
+   (ensure-node-active! target "using node as a target for a group")
+   (when-not target
+     (throw (IllegalArgumentException. (str "The target for this group must exist."))))
+   (let [pos    (if (keyword? position) (get NODE-POSITION position) position)
+         target (to-sc-id target)
+         pos    (or pos 1)
+         create-command (if par-group-switch "/p_new" "/g_new")
+         name (if par-group-switch (str "Par-" name) name)
+         snode  (SynthGroup. name id target position (atom :loading) (promise))]
+     (swap! active-synth-nodes* assoc id snode)
+     (snd create-command id pos target)
+     snode)))
 
 (defn par-group [& args]
   (binding [par-group-switch true]
@@ -835,7 +835,6 @@
   protocols/IKillable
   {:kill* group-deep-clear*})
 
-
 (extend java.lang.Long
   ISynthGroup
   {:group-prepend-node group-prepend-node*
@@ -849,37 +848,40 @@
 (defn node-tree
   "Returns a data representation of the synth node tree starting at
   the root group."
-  ([] (node-tree (:root-group @foundation-groups*)))
+  ([]
+   (node-tree (:root-group @foundation-groups*)))
   ([root]
-     (ensure-connected!)
-     (group-node-tree (to-sc-id root))))
+   (ensure-connected!)
+   (group-node-tree (to-sc-id root))))
 
 (defn node-tree-zipper
   "Returns a zipper representing the tree of the specified node or
   defaults to the current node tree"
-  ([] (node-tree-zipper (:root-group @foundation-groups*)))
+  ([]
+   (node-tree-zipper (:root-group @foundation-groups*)))
   ([root]
-     (zip/zipper map? :children #(assoc %1 :children %2) (group-node-tree root))))
+   (zip/zipper map? :children #(assoc %1 :children %2) (group-node-tree root))))
 
 (defn node-tree-seq
-  "Returns a lazy seq of a depth-first traversal of the tree of the
-  specified node defaulting to the current node tree"
+  "Returns a lazy seq of a depth-first traversal of the tree of the specified node
+  defaulting to the current node tree"
   ([] (node-tree-seq (:root-group @foundation-groups*)))
   ([root] (zipper-seq (node-tree-zipper root))))
 
 (defn node-tree-matching-synth-ids
-  "Returns a seq of synth ids in the node tree with specific
-  root (defaulting to the entire node tree) that match regexp or
-  strign."
-  ([re-or-str] (node-tree-matching-synth-ids re-or-str (:root-group @foundation-groups*)))
+  "Returns a seq of synth ids in the node tree with specific root (defaulting to
+  the entire node tree) that match regexp or string."
+  ([re-or-str]
+   (node-tree-matching-synth-ids re-or-str (:root-group @foundation-groups*)))
   ([re-or-str root]
-     (let [matcher-fn (if (string? re-or-str)
-                        =
-                        re-matches)]
-       (map :id
-            (filter #(and (:name %)
-                          (matcher-fn re-or-str (:name %)))
-                    (node-tree-seq root))))))
+   (let [matcher-fn (if (string? re-or-str)
+                      =
+                      re-matches)]
+     (map :id
+          (filter #(and (:name %)
+                        (matcher-fn re-or-str (:name %)))
+                  (node-tree-seq root))))))
+
 (defn pp-node-tree
   "Pretty print the node tree to *out*"
   ([] (pp-node-tree (:root-group @foundation-groups*)))

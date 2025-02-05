@@ -1,24 +1,26 @@
-(ns
-    ^{:doc "The ugen functions create a data structure representing a synthesizer
-         graph that can be executed on the synthesis server.  This is the logic
-         to \"compile\" these clojure data structures into a form that can be
-         serialized by the byte-spec defined in synthdef.clj."
-      :author "Jeff Rose"}
-    overtone.sc.synth
-  (:use [overtone.helpers lib old-contrib synth]
-        [overtone.libs event counters]
-        [overtone.music time]
-        [overtone.sc.machinery.ugen fn-gen defaults common specs sc-ugen]
-        [overtone.sc.machinery synthdef]
-        [overtone.sc bindings ugens server node foundation-groups dyn-vars]
-        [overtone.helpers seq]
-        [clojure.pprint]
-        [overtone.helpers.string :only [hash-shorten]])
-
-  (:require [overtone.config.log]
-            [clojure.set :as set]
-            [overtone.sc.cgens.env :refer [hold]]
-            [overtone.sc.protocols :as protocols]))
+(ns overtone.sc.synth
+  "The ugen functions create a data structure representing a synthesizer graph
+  that can be executed on the synthesis server. This is the logic to \"compile\"
+  these clojure data structures into a form that can be serialized by the
+  byte-spec defined in synthdef.clj."
+  {:author "Jeff Rose"}
+  (:use
+   [clojure.walk :as walk]
+   [overtone.helpers lib old-contrib synth]
+   [overtone.libs event counters]
+   [overtone.music time]
+   [overtone.sc.machinery.ugen fn-gen defaults common specs sc-ugen]
+   [overtone.sc.machinery synthdef]
+   [overtone.sc bindings ugens server node foundation-groups dyn-vars]
+   [overtone.helpers seq]
+   [clojure.pprint]
+   [overtone.helpers.string :only [hash-shorten]])
+  (:require
+   [overtone.sc.machinery.synthdef :as synthdef]
+   [overtone.config.log]
+   [clojure.set :as set]
+   [overtone.sc.cgens.env :refer [hold]]
+   [overtone.sc.protocols :as protocols]))
 
 (declare synth-player)
 
@@ -361,6 +363,7 @@
         [params ugen-form] (if (vector? (first args))
                              [(first args) (rest args)]
                              [[] args])
+        params (parse-params params)
         param-proxies (control-proxies params)]
     [sname params param-proxies ugen-form]))
 
@@ -450,9 +453,9 @@
     (count ids)))
 
 (defmacro pre-synth
-  "Resolve a synth def to a list of its name, params, ugens (nested if
-   necessary) and constants. Sets the lexical bindings of the param
-   names to control proxies within the synth definition"
+  "Resolve a synth def to a list of its name, params, ugens (nested if necessary)
+  and constants. Sets the lexical bindings of the param names to control proxies
+  within the synth definition"
   [& args]
   (let [[sname params param-proxies ugen-form] (normalize-synth-args args)]
     `(let [~@param-proxies]
@@ -499,7 +502,7 @@
     ;; call foo player with default args:
     (foo)
 
-    ;; call foo player specifyign node should be at the tail of group 0
+    ;; call foo player specifying node should be at the tail of group 0
     (foo [:tail 0])
 
     ;; call foo player with positional arguments
@@ -556,16 +559,32 @@
 
 (on-event "/overtone/tap" #'update-tap-data ::handle-incoming-tap-data)
 
+(defonce control-proxy-cache
+  (atom {}))
+
+(defn control-proxy-value-atom
+  "Provide the `:value` for a ControlProxy, which is an atom. Attempts to reuse
+  existing atoms in case a synth gets redefined."
+  [full-name param]
+  (let [ref (or (get-in @control-proxy-cache [full-name (:name param)])
+                (atom nil))]
+    (swap! control-proxy-cache assoc-in [full-name (:name param)] ref)
+    (when (or (nil? @ref)
+              (not (<= (:min param 0) @ref (:max param Double/MAX_VALUE))))
+      (reset! ref (:default param)))
+    ref))
+
 (defmacro synth
   "Define a SuperCollider synthesizer using the library of ugen
   functions provided by overtone.sc.ugen. This will return callable
   record which can be used to trigger the synthesizer.
   "
-  [& args]
-  `(let [[sname# params# ugens# constants#] (pre-synth ~@args)
+  [sname & args]
+  `(let [full-name# '~(symbol (str *ns*) (str sname))
+         [sname# params# ugens# constants#] (pre-synth ~sname ~@args)
          sdef#             (synthdef sname# params# ugens# constants#)
          arg-names#        (map :name params#)
-         params-with-vals# (map #(assoc % :value (atom (:default %))) params#)
+         params-with-vals# (map #(assoc % :value (control-proxy-value-atom full-name# %)) params#)
          instance-fn#      (apply comp (map :instance-fn (filter :instance-fn (map meta ugens#))))
          smap# (with-meta
                  (map->Synth
@@ -574,26 +593,31 @@
                    :args arg-names#
                    :params params-with-vals#
                    :instance-fn instance-fn#})
-                 {:overtone.live/to-string #(str (name (:type %)) ":" (:name %))})] ;; TODO what on earth is this?
+                 {:overtone.helpers.lib/to-string #(str (name (:type %)) ":" (:name %))})]
      (load-synthdef sdef#)
      (event :new-synth :synth smap#)
      smap#))
 
 (defn synth-form
   "Internal function used to prepare synth meta-data."
-  [s-name s-form]
-  (let [[s-name s-form] (name-with-attributes s-name s-form)
-        _               (when (not (symbol? s-name))
-                          (throw (IllegalArgumentException. (str "You need to specify a name for your synth using a symbol"))))
-        params          (first s-form)
-        params          (parse-params params)
-        ugen-form       (concat '(do) (next s-form))
-        param-names     (list (vec (map #(symbol (:name %)) params)))
-        md              (assoc (meta s-name)
-                          :name s-name
-                          :type ::synth
-                          :arglists (list 'quote param-names))]
-    [(with-meta s-name md) params ugen-form]))
+  ([s-name s-form]
+   (synth-form s-name s-form {}))
+  ([s-name s-form {:keys [compile-time?]
+                   :or {compile-time? true}}]
+   (let [[s-name s-form] (name-with-attributes s-name s-form)
+         _               (when (not (symbol? s-name))
+                           (throw (IllegalArgumentException. (str "You need to specify a name for your synth using a symbol"))))
+         params          (first s-form)
+         ugen-form       (concat '(do) (next s-form))
+         param-names     (list (vec (map #(symbol (:name %)) (parse-params params))))
+         md              (assoc (meta s-name)
+                                :name s-name
+                                :type ::synth
+                                ;; At run-time, we don't need the extra `quote`.
+                                :arglists (if compile-time?
+                                            (list 'quote param-names)
+                                            param-names))]
+     [(with-meta s-name md) params ugen-form])))
 
 (defmacro defsynth
   "Define a synthesizer and return a player function. The synth
@@ -658,39 +682,53 @@
     `(def ~s-name (synth ~s-name ~params ~ugen-form))))
 
 (defn synth-load
-  [file-path]
-  (let [{:keys [pnames params] :as sdef} (load-synth-file file-path)
+  "Load synthdef data from either a file specified using a string path
+  a URL (e.g. resource), or a byte array."
+  [data]
+  (let [{:keys [pnames params] :as sdef} (if (string? data)
+                                           (synthdef/load-synth-file data)
+                                           (let [sdef (synthdef/synthdef-read data)]
+                                             (synthdef/load-synthdef sdef)
+                                             sdef))
         [s-name params _ugen-form] (synth-form (symbol (:name sdef))
                                                (list (vec (mapcat (fn [pname default-value]
                                                                     [(symbol (:name pname)) default-value])
                                                                   pnames params))
-                                                     nil))]
+                                                     nil)
+                                               {:compile-time? false})]
     (with-meta
       (map->Synth
        {:name s-name
-        :sdef sdef})
-      (merge {:overtone.live/to-string #(str (name (:type %)) ":" (:name %))}
+        :sdef sdef
+        :args params})
+      (merge {:overtone.helpers.lib/to-string #(str (name (:type %)) ":" (:name %))}
              (meta s-name)))))
 
 (defmacro defsynth-load
-  "Load a synth from a compiled Synthdef file.
+  "Load a synth from a compiled Synthdef file string, URL (e.g. resource) or
+  byte array.
 
   E.g.
   (defsynth-load my-beep
    \"/Users/paulo.feodrippe/dev/sonic-pi/etc/synthdefs/compiled/sonic-pi-beep.scsyndef\")
 
-  (my-beep :note 40)"
-  [def-name file-path]
-  (let [smap (synth-load file-path)]
-    `(def ~(with-meta def-name
-             (merge (dissoc (meta smap) :name)
-                    (meta def-name)))
-       ~smap)))
+  (my-beep :note 40)
+
+    or, with an example using a resource,
+
+  (defsynth-load my-synth
+    (io/resource \"event.scsyndef\"))"
+  [def-name data]
+  `(let [smap# (synth-load ~data)]
+     (def ~def-name
+       smap#)
+     (alter-meta! (var ~def-name) merge (meta ~def-name))
+     (var ~def-name)))
 
 (defn synth?
   "Returns true if s is a synth, false otherwise."
   [s]
-  (= overtone.sc.synth.Synth (type s)))
+  (instance? Synth s))
 
 (def ^{:dynamic true} *demo-time* 2000)
 

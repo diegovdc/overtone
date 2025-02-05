@@ -1,16 +1,12 @@
 (ns overtone.studio.midi
-  #^{:author "Sam Aaron and Jeff Rose"
-     :doc "A high level MIDI API for sending and receiving messages with
-           external MIDI devices and automatically hooking into
-           Overtone's event system." }
-  (:use [overtone.sc.dyn-vars]
-        [overtone.libs event counters]
-        [overtone.sc.defaults :only [INTERNAL-POOL]]
-        [overtone.helpers.system :only [mac-os?]]
-        [overtone.config.store :only [config-get]]
-        )
-  (:require [overtone.config.log :as log]
-            [overtone.midi :as midi]))
+  "A high level MIDI API for sending and receiving messages with external MIDI
+  devices and automatically hooking into Overtone's event system."
+  {:author "Sam Aaron and Jeff Rose"}
+  (:require
+   [overtone.config.log :as log]
+   [overtone.libs.counters :refer :all]
+   [overtone.libs.event :refer :all]
+   [overtone.midi :as midi]))
 
 (defonce midi-control-agents* (atom {}))
 (defonce poly-players* (atom {}))
@@ -121,19 +117,19 @@
 
 (defn midi-player-stop
   ([]
-     (remove-event-handler [::midi-poly-player :midi :note-on])
-     (remove-event-handler [::midi-poly-player :midi :note-off]))
+   (remove-event-handler [::midi-poly-player :midi :note-on])
+   (remove-event-handler [::midi-poly-player :midi :note-off]))
   ([player-or-key]
-     (if (keyword? player-or-key)
-       (midi-player-stop (get @poly-players* player-or-key))
-       (let [player player-or-key]
-         (when-not (= :overtone.studio.midi-player/midi-poly-player (type player))
-           (throw (IllegalArgumentException. (str "Expected a midi-poly-player. Got: " (prn-str (type player))))))
-         (remove-event-handler (:on-key player))
-         (remove-event-handler (:off-key player))
-         (reset! (:playing? player) false)
-         (swap! poly-players* dissoc (:player-key player))
-         player))))
+   (if (keyword? player-or-key)
+     (midi-player-stop (get @poly-players* player-or-key))
+     (let [player player-or-key]
+       (when-not (= :overtone.studio.midi-player/midi-poly-player (type player))
+         (throw (IllegalArgumentException. (str "Expected a midi-poly-player. Got: " (prn-str (type player))))))
+       (remove-event-handler (:on-key player))
+       (remove-event-handler (:off-key player))
+       (reset! (:playing? player) false)
+       (swap! poly-players* dissoc (:player-key player))
+       player))))
 
 
 (defn midi-capture-next-control-input
@@ -146,19 +142,19 @@
   resulting map."
   ([] (midi-capture-next-control-input false))
   ([with-key?]
-     (let [p (promise)]
-       (oneshot-event [:midi :control-change]
-                      (fn [msg]
-                        (let [{controller :data1 val :data2} msg
-                              device-name                    (get-in msg [:device :name])
-                              res {:controller controller :value val}
-                              res (if with-key?
-                                    (assoc res :key (midi-mk-full-device-event-key (:device msg) :control-change))
-                                    res)]
+   (let [p (promise)]
+     (oneshot-event [:midi :control-change]
+                    (fn [msg]
+                      (let [{controller :data1 val :data2} msg
+                            device-name                    (get-in msg [:device :name])
+                            res {:controller controller :value val}
+                            res (if with-key?
+                                  (assoc res :key (midi-mk-full-device-event-key (:device msg) :control-change))
+                                  res)]
 
-                          (deliver p res)))
-                      ::print-next-control-input)
-       @p)))
+                        (deliver p res)))
+                    ::print-next-control-input)
+     @p)))
 
 (defn midi-capture-next-controller-key
   "Returns a vector representing the unique key for the next modified
@@ -237,34 +233,34 @@
   [devs]
   (vals (into {} (map (fn [dev] [(:device dev) dev]) devs))))
 
+(defonce dev-num-cache (atom {}))
+
+(defn next-dev-num [counter-key device-map]
+  (or
+   (get @dev-num-cache (:info device-map))
+   (let [num (next-id
+              (str counter-key
+                   (:vendor device-map)
+                   (:name device-map)
+                   (:description device-map)))]
+     (swap! dev-num-cache assoc (:info device-map) num)
+     num)))
+
 (defn- detect-midi-devices
   "Returns a set of MIDI device maps filtered to remove unwanted devices
    such as the Java Real Time Sequencer and duplicates"
   []
-  (let [devs   (midi/midi-sources)
-        devs   (remove-duplicate-devices devs)
-        devs   (map #(assoc % ::dev-num (next-id
-                                         (str "overtone.studio.midi - device - "
-                                              (:vendor %)
-                                              (:name %)
-                                              (:description %))))
-                    devs)
-        devs   (map #(assoc % ::full-device-key (midi-mk-full-device-key %)) devs)]
-    devs))
+  (->> (midi/midi-sources)
+       remove-duplicate-devices
+       (map #(assoc % ::dev-num (next-dev-num "overtone.studio.midi - device - " %)))
+       (map #(assoc % ::full-device-key (midi-mk-full-device-key %)))))
 
 (defn- detect-midi-receivers
   []
-  (let [rcvs   (midi/midi-sinks)
-        rcvs   (remove-duplicate-devices rcvs)
-        rcvs   (map #(assoc % ::dev-num (next-id
-                                         (str "overtone.studio.midi - receiver - "
-                                              (:vendor %)
-                                              (:name %)
-                                              (:description %))))
-                    rcvs)
-
-        rcvs   (map #(assoc % ::full-device-key (midi-mk-full-device-key %)) rcvs)]
-    rcvs))
+  (->> (midi/midi-sinks)
+       remove-duplicate-devices
+       (map #(assoc % ::dev-num (next-dev-num "overtone.studio.midi - receiver - " %)))
+       (map #(assoc % ::full-device-key (midi-mk-full-device-key %)))))
 
 (defn- add-listener-handles!
   "Adds listener handles to send incoming messages to Overtone's event
@@ -275,8 +271,8 @@
           (fn [dev]
             (try
               (midi/midi-handle-events (midi/midi-in dev)
-                                  #(handle-incoming-midi-event dev %1)
-                                  #(handle-incoming-midi-sysex dev %1))
+                                       #(handle-incoming-midi-event dev %1)
+                                       #(handle-incoming-midi-sysex dev %1))
               true
               (catch Exception e
                 (log/warn "Can't listen to midi device: " dev "\n" e)
@@ -288,6 +284,39 @@
 
 (defonce ^:private midi-connected-receivers*
   (map midi/midi-out (detect-midi-receivers)))
+
+(defonce __watch_device_changes__
+  (.start
+   (java.lang.Thread.
+    (fn []
+      (let [by-id #(into {} (map (juxt ::full-device-key identity)) %)]
+        (while true
+          (let [ins  (by-id (detect-midi-devices))
+                outs (by-id (detect-midi-receivers))]
+            (alter-var-root #'midi-connected-devices*
+                            (fn [old-ins]
+                              (let [old-ins (by-id old-ins)
+                                    new-ins (add-listener-handles! (vals (apply dissoc ins (keys old-ins))))]
+                                (doseq [in new-ins]
+                                  (event :midi-device-connected in))
+                                (doseq [in (vals (apply dissoc old-ins (keys ins)))]
+                                  (event :midi-device-disconnected in))
+                                (concat
+                                 (vals (select-keys old-ins (keys ins)))
+                                 new-ins))))
+            (alter-var-root #'midi-connected-receivers*
+                            (fn [old-outs]
+                              (let [old-outs (by-id old-outs)
+                                    new-outs (map midi/midi-out (vals (apply dissoc outs (keys old-outs))))]
+                                (doseq [out new-outs]
+                                  (event :midi-receiver-connected out))
+                                (doseq [out (vals (apply dissoc old-outs (keys outs)))]
+                                  (event :midi-receiver-disconnected out))
+                                (concat
+                                 (vals (select-keys old-outs (keys outs)))
+                                 new-outs))))
+            ;; Scan every 2 seconds. Seems conservative enough. CoreMidi4j does it once every 500ms.
+            (Thread/sleep 2000))))))))
 
 (defn midi-connected-devices
   "Returns a sequence of device maps for all 'connected' MIDI
@@ -341,25 +370,25 @@
   "Send a MIDI control msg to the receiver. See midi-connected-receivers
    for a full list of available receivers."
   ([rcv ctl-num val]
-     (midi/midi-control rcv ctl-num val))
+   (midi/midi-control rcv ctl-num val))
   ([rcv ctl-num val channel]
-     (midi/midi-control rcv ctl-num val channel)))
+   (midi/midi-control rcv ctl-num val channel)))
 
 (defn midi-note-on
   "Send a MIDI note on msg to the receiver. See midi-connected-receivers
    for a full list of available receivers."
   ([rcv note-num vel]
-     (midi/midi-note-on rcv note-num vel))
+   (midi/midi-note-on rcv note-num vel))
   ([rcv note-num vel channel]
-     (midi/midi-note-on rcv note-num vel channel)))
+   (midi/midi-note-on rcv note-num vel channel)))
 
 (defn midi-note-off
   "Send a MIDI note off msg to the receiver. See midi-connected-receivers
    for a full list of available receivers."
   ([rcv note-num]
-     (midi/midi-note-off rcv note-num))
+   (midi/midi-note-off rcv note-num))
   ([rcv note-num channel]
-     (midi/midi-note-off rcv note-num channel)))
+   (midi/midi-note-off rcv note-num channel)))
 
 (defn midi-note
   "Send a midi on/off msg pair to the receiver. The off message will be
@@ -368,6 +397,6 @@
 
    See midi-connected-receivers for a full list of available receivers."
   ([rcv note-num vel dur]
-     (midi/midi-note rcv note-num vel dur))
+   (midi/midi-note rcv note-num vel dur))
   ([rcv note-num vel dur channel]
-     (midi/midi-note rcv note-num vel dur channel)))
+   (midi/midi-note rcv note-num vel dur channel)))

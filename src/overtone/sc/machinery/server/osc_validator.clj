@@ -126,7 +126,7 @@
    "/quit"               []
    "/notify"             [:zero-or-one]
    "/status"             []
-   "/cmd"                [:int :anything*]
+   "/cmd"                [:cmd-name :anything*]
    "/dumpOSC"            [:zero-to-three]
    "/sync"               [:int]
    "/clearSched"         []
@@ -295,7 +295,6 @@
         (log/error err-string)
         (throw (IllegalArgumentException. err-string))))
     (apply osc-send host path args)))
-
 
 (defn validated-snd
   "Send an scsynth osc message. Validates message. Raises an exception

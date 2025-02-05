@@ -1,11 +1,12 @@
-(ns ^{:doc "Namespace containing fns to generate UGens, or Unit
-    Generators. These are the functions that act as DSP nodes in the
-    synthesizer definitions used by SuperCollider.  We generate the UGen
-    functions based on hand written metadata about each ugen (ugen
-    directory). (Eventually we hope to get this information dynamically
-    from the server.)"
-      :author "Jeff Rose & Christophe McKeon"}
-  overtone.sc.ugens
+(ns overtone.sc.ugens
+  "Namespace containing fns to generate UGens, or Unit Generators. These are the
+  functions that act as DSP nodes in the synthesizer definitions used by
+  SuperCollider. We generate the UGen functions based on hand written metadata
+  about each ugen (ugen directory). (Eventually we hope to get this information
+  dynamically from the server.)
+  
+  UGens that collide with clojure.core vars are available from overtone.sc.ugen-collide."
+  {:author "Jeff Rose & Christophe McKeon"}
   (:use [overtone.sc.machinery.ugen fn-gen]))
 
 ;; Done actions are typically executed when an envelope ends, or a sample ends
@@ -105,9 +106,8 @@
 
 (defmacro with-overloaded-ugens
   "Bind symbols for all overloaded ugens (i.e. + - / etc.) to the
-  overloaded fn in the ns overtone.sc.ugen-colliders. These fns will
-  revert back to original
-  (Clojure) semantics if not passed with ugen args. "
+  overloaded fn in the ns overtone.sc.ugen-collide. These fns will
+  revert back to original (Clojure) semantics if not passed with ugen args."
   [& body]
   (let [bindings (flatten (map (fn [[orig overload]]
                                  [orig (symbol ugen-collide-ns-str (str overload))])

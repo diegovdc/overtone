@@ -1,7 +1,6 @@
-(ns
-    ^{:doc "Read and decorate ugen metadata to create final UGEN-SPECS"
-      :author "Jeff Rose"}
-  overtone.sc.machinery.ugen.specs
+(ns overtone.sc.machinery.ugen.specs
+  "Read and decorate ugen metadata to create final UGEN-SPECS"
+  {:author "Jeff Rose"}
   (:use [clojure.pprint]
         [clojure.set :only [difference]]
         [overtone.helpers lib]
@@ -15,23 +14,24 @@
   '[basicops buf-io compander delay envgen fft2 fft-unpacking grain
     io machine-listening misc osc beq-suite chaos control demand
     ff-osc fft info noise pan trig line input filter random
-    
-    extras.mda
-    extras.stk
-    extras.glitch
+
+    extras.ay
+    extras.bat
+    extras.bbcut2u
+    extras.berlach
     extras.bhob
     extras.blackrain
     extras.distortion
+    extras.dwg
+    extras.glitch
+    extras.loopbuf
+    extras.mda
+    extras.membrane
     extras.sl
-    extras.ay
-    extras.bbcut2u
-    extras.bat
+    extras.stk
+    extras.tju
     extras.vbap
     extras.vosim
-    extras.berlach
-    extras.membrane
-    extras.tju
-    extras.dwg
     ])
 
 (defn- spec-arg-names
@@ -191,6 +191,9 @@
                       (= :ar (:rate-name bad-input)))
                  ;; Special case Pitch ugen which may have ar ugens plugged into it
                  (and (= "Pitch" (:name ugen))
+                      (= :ar (:rate-name bad-input)))
+                 ;; Special case FreeSelf ugen which may have ar ugens plugged into it
+                 (and (= "FreeSelf" (:name ugen))
                       (= :ar (:rate-name bad-input)))
 
                  ;; Special case LocalBuf which may have kr ugens plugged in
@@ -397,15 +400,7 @@
     (println (ugen-arg-info spec ugen))
     (println "=========================\n")))
 
-(defn- with-init-fn
-  "Creates the final argument initialization function which is applied to
-  arguments at runtime to do things like re-ordering and automatic filling in
-  of arguments. Typically appending input arrays as the last argument and
-  filling in the number of in or out channels for those ugens that need it.
-
-  If an init function is already present it will get called after doing the
-  mapping and mode transformations."
-  [spec]
+(defn- ->init [spec ugen]
   (let [defaulter        (partial add-default-args spec)
         mapper           (partial map-ugen-args spec)
         init-fn          (if (contains? spec :init)
@@ -424,26 +419,33 @@
         bespoke-checker  (partial with-ugen-checker-fn spec checker-fn)
         sanity-checker   (partial with-ugen-checker-fn spec sanity-checker-fn)
         arg-name-checker (partial with-ugen-checker-fn spec arg-name-checker-fn)]
+    (->> ugen
+         (with-debugging (partial print-args-pre-processing spec))
+         defaulter
+         mapper
+         initer
+         n-outputer
+         floater
+         appender
+         auto-rater
+         nil-arg-checker
+         bespoke-checker
+         associative->id
+         rate-checker
+         sanity-checker
+         arg-name-checker
+         (with-debugging (partial print-args-post-processing spec)))))
 
-    (assoc spec :init
+(defn- with-init-fn
+  "Creates the final argument initialization function which is applied to
+  arguments at runtime to do things like re-ordering and automatic filling in
+  of arguments. Typically appending input arrays as the last argument and
+  filling in the number of in or out channels for those ugens that need it.
 
-           (fn [ugen]
-             (->> ugen
-                  (with-debugging (partial print-args-pre-processing spec))
-                  defaulter
-                  mapper
-                  initer
-                  n-outputer
-                  floater
-                  appender
-                  auto-rater
-                  nil-arg-checker
-                  bespoke-checker
-                  associative->id
-                  rate-checker
-                  sanity-checker
-                  arg-name-checker
-                  (with-debugging (partial print-args-post-processing spec)))))))
+  If an init function is already present it will get called after doing the
+  mapping and mode transformations."
+  [spec]
+  (assoc spec :init #(->init spec %)))
 
 (defn- with-fn-names
   "Generates all the function names for this ugen and adds a :fn-names map
@@ -497,23 +499,23 @@
    by recursively reducing the specs to support arbitrary levels of derivation."
   ([specs] (derive-ugen-specs specs {} 0))
   ([children adults depth]
-     ;; Make sure a bogus UGen doesn't spin us off into infinity... ;-)
-     {:pre [(< depth 8)]}
+   ;; Make sure a bogus UGen doesn't spin us off into infinity... ;-)
+   {:pre [(< depth 8)]}
 
-     (let [[adults children]
-           (reduce (fn [[full-specs new-children] spec]
-                     (if (derived? spec)
-                       (if (contains? full-specs (:extends spec))
-                         [(assoc full-specs (:name spec)
-                                 (merge (get full-specs (:extends spec)) spec))
-                          new-children]
-                         [full-specs (conj new-children spec)])
-                       [(assoc full-specs (:name spec) spec) new-children]))
-                   [adults []]
-                   children)]
-       (if (empty? children)
-         (vals adults)
-         (recur children adults (inc depth))))))
+   (let [[adults children]
+         (reduce (fn [[full-specs new-children] spec]
+                   (if (derived? spec)
+                     (if (contains? full-specs (:extends spec))
+                       [(assoc full-specs (:name spec)
+                               (merge (get full-specs (:extends spec)) spec))
+                        new-children]
+                       [full-specs (conj new-children spec)])
+                     [(assoc full-specs (:name spec) spec) new-children]))
+                 [adults []]
+                 children)]
+     (if (empty? children)
+       (vals adults)
+       (recur children adults (inc depth))))))
 
 (defn- load-ugen-specs [namespaces]
   "Perform the derivations and setup defaults for rates, names

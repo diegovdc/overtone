@@ -1,7 +1,6 @@
-(ns
-  ^{:doc "A virtual studio mixing table."
-     :author "Jeff Rose & Sam Aaron"}
-    overtone.studio.mixer
+(ns overtone.studio.mixer
+  "A virtual studio mixing table."
+  {:author "Jeff Rose & Sam Aaron"}
   (:use [overtone.music.rhythm]
         [overtone.music.pitch]
         [overtone.libs.event]
@@ -33,10 +32,10 @@
   (:require [overtone.studio fx]
             [overtone.config.log :as log]))
 
-; An instrument abstracts the more basic concept of a synthesizer used by
-; SuperCollider.  Every instance of an instrument will be placed in the same
-; group, so if you later call (kill my-inst) it will be able to stop all the
-; instances of that group.  (Likewise for controlling them...)
+;; An instrument abstracts the more basic concept of a synthesizer used by
+;; SuperCollider.  Every instance of an instrument will be placed in the same
+;; group, so if you later call (kill my-inst) it will be able to stop all the
+;; instances of that group.  (Likewise for controlling them...)
 
 (on-event "/server-audio-clipping-rogue-vol"
           (fn [msg]
@@ -125,7 +124,7 @@
   []
   (swap! studio* assoc :bus-mixers {:in [] :out []}))
 
-; Setup mixers automatically when the base
+;; Setup mixers automatically when the base
 (on-deps [:foundation-groups-created :synthdefs-loaded] ::start-bus-mixers start-io-mixers)
 (on-sync-event :shutdown ::reset-bus-mixers (fn [_] (clear-io-mixers)))
 
@@ -219,9 +218,9 @@
                             "whilst creating the Studio group")
         insts-with-groups (map-vals (fn [val]
                                       (assoc val :group
-                                        (with-server-sync
-                                          #(group (str "Recreated Inst Group") :tail g)
-                                          "whist creating the Recreated Inst Group")))
+                                             (with-server-sync
+                                               #(group (str "Recreated Inst Group") :tail g)
+                                               "whist creating the Recreated Inst Group")))
                                     (:instruments @studio*))]
     (swap! studio* assoc
            :instrument-group g
@@ -232,7 +231,7 @@
   []
   (setup-studio-groups))
 
-(on-deps :server-ready ::setup-studio-groups setup-studio)
+(on-deps :foundation-groups-created ::setup-studio-groups setup-studio)
 
 (defn reset-instruments
   "Frees all synth notes for each of the current instruments"
@@ -243,22 +242,22 @@
 (on-sync-event :reset reset-instruments ::reset-instruments)
 
 (defn add-instrument
-    "Add an instrument to the session."
+  "Add an instrument to the session."
   [inst]
-  (let [i-name (:name inst)]
-    (swap! studio* update-in [:instruments i-name] (fn [_] inst))
+  (let [i-name (:full-name inst)]
+    (swap! studio* assoc-in [:instruments i-name] inst)
     i-name))
 
 (defn remove-instrument
   "Remove an instrument from the session."
-  [i-name]
-  (swap! studio* (fn [s]
-                   (let [insts (:instruments s)
-                         insts (dissoc insts (name i-name))]
-                     (assoc s :instruments insts))))
-  (event :inst-removed :inst-name i-name))
+  [full-name]
+  (swap! studio* update :instruments dissoc full-name)
+  (event :inst-removed :inst-name full-name))
 
 (defn clear-instruments
   "Clear all instruments from the session."
   []
-  (swap! studio* assoc :instruments {}))
+  (let [[{:keys [instruments]} _]
+        (swap-vals! studio* assoc :instruments {})]
+    (doseq [[_name inst] instruments]
+      (group-free (:group inst)))))

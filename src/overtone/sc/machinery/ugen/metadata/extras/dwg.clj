@@ -142,4 +142,103 @@
                :doc     "Torsional waves string impedance."}]
     :rates   #{:ar}
     :doc     "Digital wave guide physical model of a bowed instrument. Sound must go throught BowSoundBoard for better sound. 
-              Like DWGBowed but also with torsional waves."}])
+              Like DWGBowed but also with torsional waves."}
+
+   {:name "DWGPlucked"
+    :summary "Digital wave guide physical model of a plucked instrument."
+    :args   [{:name "freq",
+              :default 440.0,
+              :doc "Sound frequency."}
+             {:name "amp",
+              :default 0.5,
+              :doc "Key pulsation strength. Between 0 and 1."}
+             {:name "gate",
+              :default 1.0,
+              :doc "Releases synth when value changes from >0 to 0."}
+             {:name "pos",
+              :default 0.14,
+              :doc "Relative pluck position from 0 to 1."}
+             {:name "c1",
+              :default 1.0,
+              :doc "Inverse of DC decay time."}
+             {:name "c3",
+              :default 30.0,
+              :doc "High frequency loss factor."}
+             {:name "inp",
+              :default 0.0,
+              :doc "Plucking signal. Could be first part of a plucked sample for commuted synthesis."}
+             {:name "release",
+              :default 0.1,
+              :doc "Release time in seconds."}]
+    :rates #{:ar}
+    :doc "Digital wave guide physical model of a plucked instrument."}
+
+   {:name "DWGPlucked2"
+    :summary "Digital wave guide physical model of a plucked instrument. It has two strings which are coupled by gc parameter."
+    :args   [{:name "freq",
+              :default 440.0,
+              :doc "Sound frequency."}
+             {:name "amp",
+              :default 0.5,
+              :doc "Key pulsation strength. Between 0 and 1."}
+             {:name "gate",
+              :default 1.0,
+              :doc "Releases synth when value changes from >0 to 0."}
+             {:name "pos",
+              :default 0.14,
+              :doc "Relative pluck position from 0 to 1."}
+             {:name "c1",
+              :default 1.0,
+              :doc "Inverse of DC decay time."}
+             {:name "c3",
+              :default 30.0,
+              :doc "High frequency loss factor."}
+             {:name "inp",
+              :default 0.0,
+              :doc "Plucking signal. Could be first part of a plucked sample for commuted synthesis."}
+             {:name "release",
+              :default 0.1,
+              :doc "Release time in seconds."}
+             {:name "mistune",
+              :default 1.008,
+              :doc "Factor for detuning second string."}
+             {:name "mp",
+              :default 0.55,
+              :doc "Excitation mixer. 1 is only first string, 0 is only second string."}
+             {:name "gc",
+              :default 0.01,
+              :doc "Coupling string factor."}]
+    :rates #{:ar}
+    :doc "Digital wave guide physical model of a plucked instrument with two coupled strings."}
+
+   {:name "DWGPluckedStiff"
+    :summary "Digital wave guide physical model of a plucked instrument. It implements inharmonicity due to string stiffness according to J. Rauhala and V. Välimäki."
+    :args   [{:name "freq",
+              :default 440.0,
+              :doc "Sound frequency."}
+             {:name "amp",
+              :default 0.5,
+              :doc "Key pulsation strength. Between 0 and 1."}
+             {:name "gate",
+              :default 1.0,
+              :doc "Releases synth when value changes from >0 to 0."}
+             {:name "pos",
+              :default 0.14,
+              :doc "Relative pluck position from 0 to 1."}
+             {:name "c1",
+              :default 1.0,
+              :doc "Inverse of DC decay time."}
+             {:name "c3",
+              :default 30.0,
+              :doc "High frequency loss factor."}
+             {:name "inp",
+              :default 0.0,
+              :doc "Plucking signal. Could be first part of a plucked sample for commuted synthesis."}
+             {:name "release",
+              :default 0.1,
+              :doc "Release time in seconds."}
+             {:name "fB",
+              :default 2.0,
+              :doc "Inharmonicity factor."}]
+    :rates #{:ar}
+    :doc "Digital wave guide physical model of a plucked instrument with inharmonicity due to string stiffness."}])
